@@ -22,12 +22,6 @@ See [PRODUCTION_BACKEND.md](PRODUCTION_BACKEND.md) for setup, architecture,
 database migration, Firebase configuration, Flutter authentication, and the
 API v1 endpoint map.
 
-The cross-platform client is in [`flutter_app/`](flutter_app/). It includes
-Firebase sign-in, onboarding, personalized discovery, search, library and
-playlist views, downloads, and a persistent background-capable audio player.
-See [`flutter_app/README.md`](flutter_app/README.md) for its platform setup and
-run commands.
-
 ## Usage
 
 Start the server (see [Local Development](#local-development)), then open the interactive docs:
@@ -145,8 +139,8 @@ These endpoints depend on Gaana's live catalog and current website request heade
 ## Local Development
 
 ```sh
-git clone https://github.com/ZingyTomato/GaanaPy
-cd GaanaPy
+git clone https://github.com/html-proof/sample-song-list-activity
+cd sample-song-list-activity
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -169,7 +163,7 @@ python3 -m pytest tests/ -v
 ```yaml
 services:
   gaanapy:
-    image: zingytomato/gaanapy:main
+    image: ghcr.io/html-proof/sample-song-list-activity:latest
     container_name: gaanapy
     ports:
       - "8000:8000"

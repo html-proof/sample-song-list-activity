@@ -1,6 +1,6 @@
 services:
   gaanapy:
-    image: zingytomato/gaanapy:main
+    image: ghcr.io/html-proof/sample-song-list-activity:latest
     container_name: gaanapy
     ports:
       - "8000:8000"
