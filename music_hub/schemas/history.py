@@ -1,11 +1,11 @@
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
 
-class MusicEventType(StrEnum):
+class MusicEventType(str, Enum):
     impression = "impression"
     play = "play"
     pause = "pause"
