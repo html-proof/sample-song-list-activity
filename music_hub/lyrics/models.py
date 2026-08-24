@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class LyricsStatus(StrEnum):
+class LyricsStatus(str, Enum):
     AVAILABLE = "available"
     PLAIN_ONLY = "plain_only"
     INSTRUMENTAL = "instrumental"
@@ -15,7 +15,7 @@ class LyricsStatus(StrEnum):
     TEMPORARY_ERROR = "temporary_error"
 
 
-class LyricsSyncType(StrEnum):
+class LyricsSyncType(str, Enum):
     WORD = "word"
     LINE = "line"
     PLAIN = "plain"
