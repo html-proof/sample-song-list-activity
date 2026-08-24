@@ -102,10 +102,19 @@ In Firebase Console:
 1. Create or select the Firebase project.
 2. Enable Authentication → Sign-in method → Google.
 3. Configure Android and/or iOS application identifiers for Flutter.
-4. Give the FastAPI deployment Application Default Credentials, or securely
-   mount a Firebase service-account JSON file.
-5. Set `FIREBASE_PROJECT_ID` and, when using a file,
-   `FIREBASE_CREDENTIALS_PATH`.
+4. Set `FIREBASE_PROJECT_ID` on the deployment. This alone is enough to
+   authenticate users: ID tokens are verified against Google's published
+   signing certificates, which need no credentials.
+5. A service account is only required for privileged Admin operations --
+   token revocation checks (`FIREBASE_CHECK_REVOKED`) and account deletion.
+   Provide it with **one** of:
+   - `FIREBASE_CREDENTIALS_JSON` - the whole service-account JSON on one line.
+     Use this on Render, Fly, and Heroku, where a file cannot be mounted.
+   - `FIREBASE_CREDENTIALS_PATH` - a path to a securely mounted JSON file.
+   - Application Default Credentials in the environment.
+
+`/ready` reports which mode is active as `"firebase": "public"` or
+`"firebase": "admin"`.
 
 Do not commit the service-account file. `.env` is ignored by Git.
 
@@ -126,9 +135,10 @@ DATABASE_URL
 FIREBASE_PROJECT_ID
 ```
 
-Required when not using Application Default Credentials:
+Required only for revocation checks and account deletion (choose one):
 
 ```text
+FIREBASE_CREDENTIALS_JSON
 FIREBASE_CREDENTIALS_PATH
 ```
 
