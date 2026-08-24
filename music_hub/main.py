@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from music_hub.api.v1 import router as api_v1_router
 from music_hub.auth import FirebaseVerifier
 from music_hub.cache import RedisCache
+from music_hub.cache.lyrics_cache import LyricsCache
 from music_hub.config import Settings, get_settings
 from music_hub.container import Container
 from music_hub.database import Database
@@ -19,6 +20,8 @@ from music_hub.errors import (
 )
 from music_hub.middleware import RedisRateLimitMiddleware
 from music_hub.providers.gaana import GaanaProvider
+from music_hub.providers.lyrics import LicensedHttpLyricsProvider, UnsupportedLyricsProvider
+from music_hub.lyrics.matcher import LyricsMatcher
 from music_hub.recommendations.candidate_generator import CandidateGenerator
 from music_hub.recommendations.cursor import InvalidCursor
 from music_hub.recommendations.engine import RecommendationEngine
@@ -36,6 +39,7 @@ from music_hub.services.history import HistoryService
 from music_hub.services.devices import DeviceService
 from music_hub.services.home import HomeService
 from music_hub.services.library import LibraryService
+from music_hub.services.lyrics import LyricsService
 from music_hub.services.music import MusicService
 from music_hub.services.onboarding import OnboardingService
 from music_hub.services.playlists import PlaylistService
@@ -77,6 +81,15 @@ async def build_container(settings: Settings) -> Container:
         await cache.close()
 
     provider = GaanaProvider()
+    lyrics_provider = (
+        LicensedHttpLyricsProvider(
+            settings.lyrics_api_base_url,
+            settings.lyrics_api_token.get_secret_value(),
+            settings.lyrics_request_timeout_seconds,
+        )
+        if settings.lyrics_api_base_url and settings.lyrics_api_token
+        else UnsupportedLyricsProvider()
+    )
     firebase = FirebaseVerifier(settings)
 
     users_repository = UserRepository(database)
@@ -105,6 +118,12 @@ async def build_container(settings: Settings) -> Container:
         settings_service,
     )
     music = MusicService(provider, cache, settings)
+    lyrics = LyricsService(
+        provider,
+        lyrics_provider,
+        LyricsCache(cache, settings.lyrics_cache_ttl, settings.lyrics_negative_cache_ttl),
+        LyricsMatcher(settings.lyrics_match_confidence),
+    )
     history = HistoryService(history_repository, settings_service, cache)
     library = LibraryService(library_repository, cache)
     playlists = PlaylistService(playlists_repository, cache)
@@ -123,6 +142,7 @@ async def build_container(settings: Settings) -> Container:
         cache=cache,
         firebase=firebase,
         provider=provider,
+        lyrics_provider=lyrics_provider,
         users_repository=users_repository,
         preferences_repository=preferences_repository,
         history_repository=history_repository,
@@ -135,6 +155,7 @@ async def build_container(settings: Settings) -> Container:
         onboarding=onboarding,
         search=search,
         music=music,
+        lyrics=lyrics,
         history=history,
         library=library,
         playlists=playlists,
@@ -156,6 +177,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             yield
         finally:
             await container.provider.close()
+            await container.lyrics_provider.close()
             await container.cache.close()
             await container.database.close()
 

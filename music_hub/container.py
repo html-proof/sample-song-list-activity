@@ -5,6 +5,7 @@ from music_hub.cache import RedisCache
 from music_hub.config import Settings
 from music_hub.database import Database
 from music_hub.providers.base import MusicProvider
+from music_hub.providers.lyrics import LyricsProvider
 from music_hub.recommendations import RecommendationEngine
 from music_hub.repositories import (
     DeviceRepository,
@@ -20,6 +21,7 @@ from music_hub.services.devices import DeviceService
 from music_hub.services.history import HistoryService
 from music_hub.services.home import HomeService
 from music_hub.services.library import LibraryService
+from music_hub.services.lyrics import LyricsService
 from music_hub.services.music import MusicService
 from music_hub.services.onboarding import OnboardingService
 from music_hub.services.playlists import PlaylistService
@@ -35,6 +37,7 @@ class Container:
     cache: RedisCache
     firebase: FirebaseVerifier
     provider: MusicProvider
+    lyrics_provider: LyricsProvider
     users_repository: UserRepository
     preferences_repository: PreferenceRepository
     history_repository: HistoryRepository
@@ -47,6 +50,7 @@ class Container:
     onboarding: OnboardingService
     search: SearchService
     music: MusicService
+    lyrics: LyricsService
     history: HistoryService
     library: LibraryService
     playlists: PlaylistService

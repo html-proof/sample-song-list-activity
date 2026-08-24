@@ -21,6 +21,7 @@ def test_api_v1_contract_contains_core_routes():
     assert "/api/v1/preferences/languages" in paths
     assert "/api/v1/devices/{device_id}" in paths
     assert "/api/v1/account" in paths
+    assert "/api/v1/songs/{song_id}/lyrics" in paths
 
 
 def test_production_cors_does_not_default_to_wildcard():
@@ -31,6 +32,20 @@ def test_production_cors_does_not_default_to_wildcard():
 
 def test_blank_firebase_credentials_path_is_optional():
     assert Settings(firebase_credentials_path="").firebase_credentials_path is None
+
+
+def test_lyrics_provider_credentials_must_be_configured_together():
+    with pytest.raises(ValidationError):
+        Settings(lyrics_api_base_url="lyrics.example.com")
+
+
+def test_lyrics_provider_url_is_normalized():
+    settings = Settings(
+        lyrics_api_base_url="lyrics.example.com/v1",
+        lyrics_api_token="secret",
+    )
+
+    assert settings.lyrics_api_base_url == "https://lyrics.example.com/v1"
 
 
 def test_production_rejects_development_cursor_secret():

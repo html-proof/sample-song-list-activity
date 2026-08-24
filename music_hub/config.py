@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     upstash_redis_rest_token: SecretStr | None = None
     cache_namespace: str = "music-hub"
 
+    lyrics_api_base_url: str | None = None
+    lyrics_api_token: SecretStr | None = None
+    lyrics_request_timeout_seconds: float = 8
+    lyrics_match_confidence: float = 0.82
+    lyrics_cache_ttl: int = 604800
+    lyrics_negative_cache_ttl: int = 3600
+
     firebase_project_id: str | None = None
     firebase_credentials_path: Path | None = None
     firebase_check_revoked: bool = True
@@ -82,12 +89,19 @@ class Settings(BaseSettings):
     def normalize_upstash_rest_url(cls, value):
         return normalize_http_url(value)
 
+    @field_validator("lyrics_api_base_url", mode="before")
+    @classmethod
+    def normalize_lyrics_api_base_url(cls, value):
+        return normalize_http_url(value)
+
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":
         if bool(self.upstash_redis_rest_url) != bool(self.upstash_redis_rest_token):
             raise ValueError(
                 "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set together"
             )
+        if bool(self.lyrics_api_base_url) != bool(self.lyrics_api_token):
+            raise ValueError("LYRICS_API_BASE_URL and LYRICS_API_TOKEN must be set together")
         if (
             self.app_env.casefold() == "production"
             and self.cursor_secret.get_secret_value() == "development-only-change-me"

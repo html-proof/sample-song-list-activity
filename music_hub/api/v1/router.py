@@ -9,6 +9,7 @@ from . import (
     history,
     home,
     library,
+    lyrics,
     onboarding,
     playlists,
     preferences,
@@ -26,6 +27,7 @@ router.include_router(users.router)
 router.include_router(onboarding.router)
 router.include_router(home.router)
 router.include_router(search.router)
+router.include_router(lyrics.router)
 router.include_router(songs.router)
 router.include_router(artists.router)
 router.include_router(albums.router)
