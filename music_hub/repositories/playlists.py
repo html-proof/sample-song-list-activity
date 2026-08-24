@@ -51,8 +51,15 @@ class PlaylistRepository:
         if not playlist:
             raise ResourceNotFound("Playlist was not found")
         tracks = await self.database.fetch(
-            "SELECT * FROM playlist_tracks WHERE playlist_id = $1 ORDER BY position, added_at",
+            """
+            SELECT id, playlist_id, provider, song_id, song_name, artist_name,
+                   album_name, artwork_url, duration_ms, position, added_at
+            FROM playlist_tracks
+            WHERE playlist_id = $1 AND user_id = $2
+            ORDER BY position, added_at
+            """,
             playlist_id,
+            playlist["user_id"],
         )
         return {**dict(playlist), "tracks": [dict(row) for row in tracks]}
 
@@ -87,10 +94,10 @@ class PlaylistRepository:
         row = await self.database.fetchrow(
             """
             INSERT INTO playlist_tracks (
-                playlist_id, provider, song_id, song_name, artist_name,
+                playlist_id, user_id, provider, song_id, song_name, artist_name,
                 album_name, artwork_url, duration_ms, position
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8,
+                $1, $2, $3, $4, $5, $6, $7, $8, $9,
                 COALESCE((SELECT MAX(position) + 1 FROM playlist_tracks WHERE playlist_id = $1), 0)
             )
             ON CONFLICT (playlist_id, provider, song_id) DO UPDATE
@@ -100,6 +107,7 @@ class PlaylistRepository:
             RETURNING *
             """,
             playlist_id,
+            user_id,
             item.provider,
             item.song_id,
             item.song_name,
@@ -114,9 +122,13 @@ class PlaylistRepository:
     async def remove_track(self, user_id: UUID, playlist_id: UUID, track_id: UUID) -> None:
         await self._owned(user_id, playlist_id)
         await self.database.execute(
-            "DELETE FROM playlist_tracks WHERE id = $1 AND playlist_id = $2",
+            """
+            DELETE FROM playlist_tracks
+            WHERE id = $1 AND playlist_id = $2 AND user_id = $3
+            """,
             track_id,
             playlist_id,
+            user_id,
         )
         await self.database.execute("UPDATE playlists SET updated_at = now() WHERE id = $1", playlist_id)
 

@@ -9,46 +9,56 @@ class CandidateGenerator:
 
     async def generate(self, raw_signals: dict) -> list[dict]:
         recommendation_settings = raw_signals.get("recommendation_settings", {})
-        languages = list(raw_signals.get("languages", {}))[:3] or ["hindi"]
+        personalized = bool(raw_signals.get("personalized", True))
+        languages = (
+            list(raw_signals.get("languages", {}))[:3]
+            if personalized
+            else []
+        ) or ["hindi"]
         if recommendation_settings.get("cross_language_discovery", True):
             for language in ("english", "hindi", "tamil", "telugu", "malayalam"):
                 if language not in languages:
                     languages.append(language)
                 if len(languages) >= 5:
                     break
-        artist_records = raw_signals.get("selected_artist_records", [])[:5]
-
-        requests = [
-            self.provider.trending([language.title()], 40)
-            for language in languages
-        ]
-        requests.extend(
-            self.provider.new_releases([language.title()], 30)
-            for language in languages
+        selected_artist_ids = {
+            str(artist["provider_artist_id"])
+            for artist in raw_signals.get("selected_artist_records", [])
+            if artist.get("provider_artist_id")
+        }
+        interest_artist_ids = (
+            list(raw_signals.get("interest_artists", []))[:8]
+            if personalized
+            else []
         )
+
+        requests = []
+        sources: list[str] = []
+        for language in languages:
+            requests.append(self.provider.trending([language.title()], 40))
+            sources.append("trending")
+        for language in languages:
+            requests.append(self.provider.new_releases([language.title()], 30))
+            sources.append("new_release")
         if (
-            recommendation_settings.get("enabled", True)
+            personalized
+            and recommendation_settings.get("enabled", True)
             and recommendation_settings.get("discover_new_artists", True)
         ):
-            requests.extend(
-                self._artist_candidates(str(artist["provider_artist_id"]))
-                for artist in artist_records
-                if artist.get("provider_artist_id")
-            )
+            for artist_id in interest_artist_ids:
+                requests.append(self._artist_candidates(str(artist_id)))
+                sources.append(
+                    "selected_artist"
+                    if artist_id in selected_artist_ids
+                    else "interest_artist"
+                )
         results = await asyncio.gather(*requests, return_exceptions=True)
 
         candidates: list[dict] = []
-        trending_count = len(languages)
-        new_release_end = trending_count * 2
         for index, result in enumerate(results):
             if isinstance(result, Exception) or not isinstance(result, list):
                 continue
-            if index < trending_count:
-                source = "trending"
-            elif index < new_release_end:
-                source = "new_release"
-            else:
-                source = "selected_artist"
+            source = sources[index]
             for item in result:
                 if isinstance(item, dict) and (item.get("track_id") or item.get("stream_urls")):
                     candidates.append({**item, "recommendation_source": source})

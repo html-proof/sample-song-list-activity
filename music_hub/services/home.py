@@ -53,7 +53,17 @@ class HomeService:
         because_you_like = [
             item for item in recommendations.data
             if set(item.get("recommendation_reasons", []))
-            & {"selected_artist", "followed_artist", "liked_song", "from_selected_artist"}
+            & {
+                "selected_artist",
+                "followed_artist",
+                "liked_song",
+                "from_selected_artist",
+                "learned_artist_interest",
+                "learned_song_interest",
+                "learned_language_interest",
+                "from_learned_interest",
+                "recent_search",
+            }
         ][:10]
         language_mix = [
             item for item in recommendations.data

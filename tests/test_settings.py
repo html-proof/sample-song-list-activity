@@ -5,6 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from music_hub.schemas.history import ListeningHistoryCreate, MusicEventCreate
+from music_hub.schemas.library import FollowedArtistCreate, LikedSongCreate
 from music_hub.schemas.settings import (
     AppSettings,
     DownloadSettingsUpdate,
@@ -12,6 +13,7 @@ from music_hub.schemas.settings import (
     RecommendationSettingsUpdate,
 )
 from music_hub.services.history import HistoryService
+from music_hub.services.library import LibraryService
 from music_hub.services.settings import SettingsService
 
 
@@ -89,3 +91,41 @@ async def test_disabled_analytics_prevents_event_collection():
 
     assert result["stored"] is False
     repository.add_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_listening_signal_invalidates_only_the_owning_users_feed():
+    user_id = uuid4()
+    repository = AsyncMock()
+    repository.add_listen.return_value = {"id": "listen-1"}
+    cache = AsyncMock()
+    service = HistoryService(repository, cache=cache)
+
+    await service.record_listen(
+        user_id,
+        ListeningHistoryCreate(song_id="song-1"),
+    )
+
+    cache.delete_pattern.assert_awaited_once_with(
+        f"recommendations:{user_id}:*"
+    )
+
+
+@pytest.mark.asyncio
+async def test_library_signals_invalidate_only_the_owning_users_feed():
+    user_id = uuid4()
+    repository = AsyncMock()
+    repository.like_song.return_value = {"song_id": "song-1"}
+    repository.follow_artist.return_value = {"artist_id": "artist-1"}
+    cache = AsyncMock()
+    service = LibraryService(repository, cache)
+
+    await service.like(user_id, LikedSongCreate(song_id="song-1"))
+    await service.follow(
+        user_id,
+        FollowedArtistCreate(artist_id="artist-1"),
+    )
+
+    assert cache.delete_pattern.await_count == 2
+    for call in cache.delete_pattern.await_args_list:
+        assert call.args == (f"recommendations:{user_id}:*",)
