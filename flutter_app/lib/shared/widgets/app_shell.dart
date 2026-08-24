@@ -2,7 +2,6 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:music_hub_app/app/theme.dart';
 import 'package:music_hub_app/features/player/presentation/mini_player.dart';
 
 final connectivityProvider = StreamProvider<List<ConnectivityResult>>((ref) {
@@ -42,18 +41,19 @@ class AppShell extends ConsumerWidget {
           Expanded(child: navigationShell),
         ],
       ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(color: AppTheme.background),
+      bottomNavigationBar: ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: SafeArea(
           top: false,
           minimum: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const MiniPlayer(),
-                NavigationBar(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const MiniPlayer(),
+              const SizedBox(height: 7),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: NavigationBar(
                   selectedIndex: navigationShell.currentIndex,
                   onDestinationSelected: (index) => navigationShell.goBranch(
                     index,
@@ -81,8 +81,8 @@ class AppShell extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),

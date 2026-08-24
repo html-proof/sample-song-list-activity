@@ -1,9 +1,13 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_hub_app/app/app.dart';
+import 'package:music_hub_app/core/api/api_client.dart';
+import 'package:music_hub_app/core/api/event_tracker.dart';
 import 'package:music_hub_app/core/audio/music_audio_handler.dart';
+import 'package:music_hub_app/core/audio/playback_source_resolver.dart';
 import 'package:music_hub_app/core/providers.dart';
 import 'package:music_hub_app/core/storage/local_store.dart';
 import 'package:music_hub_app/firebase_options.dart';
@@ -19,8 +23,15 @@ Future<void> bootstrap() async {
     final preferences = await SharedPreferences.getInstance().timeout(
       const Duration(seconds: 15),
     );
+    final auth = FirebaseAuth.instance;
+    final api = ApiClient(auth);
+    final tracker = EventTracker(api);
     final handler = await AudioService.init<MusicAudioHandler>(
-      builder: () => MusicAudioHandler(store),
+      builder: () => MusicAudioHandler(
+        store,
+        sourceResolver: PlaybackSourceResolver(store, api: api),
+        analytics: tracker,
+      ),
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.musichub.app.playback',
         androidNotificationChannelName: 'Music playback',
@@ -34,6 +45,9 @@ Future<void> bootstrap() async {
           localStoreProvider.overrideWithValue(store),
           sharedPreferencesProvider.overrideWithValue(preferences),
           audioHandlerProvider.overrideWithValue(handler),
+          firebaseAuthProvider.overrideWithValue(auth),
+          apiClientProvider.overrideWithValue(api),
+          eventTrackerProvider.overrideWithValue(tracker),
         ],
         child: const MusicHubApp(),
       ),

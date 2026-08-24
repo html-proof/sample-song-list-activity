@@ -2,20 +2,23 @@ import 'dart:async';
 
 import 'package:music_hub_app/core/api/api_client.dart';
 import 'package:music_hub_app/core/api/api_endpoints.dart';
+import 'package:music_hub_app/core/audio/playback_analytics.dart';
 import 'package:music_hub_app/shared/models/music_item.dart';
 import 'package:uuid/uuid.dart';
 
-class EventTracker {
+class EventTracker implements PlaybackAnalytics {
   EventTracker(this._api) : sessionId = const Uuid().v4();
 
   final ApiClient _api;
   final String sessionId;
 
+  @override
   void track(
     String event,
     MusicItem item, {
     required String source,
     int? positionMs,
+    Map<String, dynamic>? metadata,
   }) {
     unawaited(
       _api
@@ -35,6 +38,7 @@ class EventTracker {
               'source': source,
               'position_ms': positionMs,
               'session_id': sessionId,
+              'metadata': metadata ?? const <String, dynamic>{},
             },
             headers: {'Idempotency-Key': const Uuid().v4()},
           )
@@ -42,6 +46,7 @@ class EventTracker {
     );
   }
 
+  @override
   void recordListen(
     MusicItem item, {
     required String source,

@@ -70,6 +70,11 @@ class LocalStore {
     return _downloads.put(item['id'].toString(), item);
   }
 
+  Map<String, dynamic>? readDownload(String id) {
+    final value = _downloads.get(id);
+    return value is Map ? value.cast<String, dynamic>() : null;
+  }
+
   Future<void> removeDownload(String id) => _downloads.delete(id);
 
   T readSetting<T>(String key, T fallback) {

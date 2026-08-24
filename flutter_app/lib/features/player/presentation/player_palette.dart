@@ -42,7 +42,10 @@ final playerPaletteProvider = FutureProvider.autoDispose
         const black = Color(0xFF08090C);
         return PlayerPalette(
           background: Color.alphaBlend(primary.withValues(alpha: 0.18), black),
-          surface: Color.alphaBlend(primary.withValues(alpha: 0.16), const Color(0xFF171A22)),
+          surface: Color.alphaBlend(
+            primary.withValues(alpha: 0.16),
+            const Color(0xFF171A22),
+          ),
           primary: primary,
           secondary: secondary,
         );

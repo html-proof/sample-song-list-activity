@@ -175,17 +175,17 @@ class RecommendationRepository:
         skipped_songs = Counter(
             str(row["song_id"])
             for row in events
-            if row["event_type"] == "skip" and row["song_id"]
+            if row["event_type"] in {"skip", "user_pressed_next"} and row["song_id"]
         )
         skipped_artists = Counter(
             str(row["artist_id"])
             for row in events
-            if row["event_type"] == "skip" and row["artist_id"]
+            if row["event_type"] in {"skip", "user_pressed_next"} and row["artist_id"]
         )
         skipped_languages = Counter(
             str(row["language"]).casefold()
             for row in events
-            if row["event_type"] == "skip" and row["language"]
+            if row["event_type"] in {"skip", "user_pressed_next"} and row["language"]
         )
         completed = {
             str(row["song_id"])

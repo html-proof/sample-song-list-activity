@@ -15,13 +15,22 @@ class DownloadWriter {
     final directory = Directory('${root.path}${Platform.pathSeparator}music');
     await directory.create(recursive: true);
     final path = '${directory.path}${Platform.pathSeparator}$id.audio';
+    final partialPath = '$path.part';
     await _dio.download(
       url,
-      path,
+      partialPath,
+      deleteOnError: false,
       onReceiveProgress: (received, total) {
         if (total > 0) progress(received / total);
       },
     );
+    final partial = File(partialPath);
+    if (!await partial.exists() || await partial.length() == 0) {
+      throw const FileSystemException('Downloaded audio is empty');
+    }
+    final completed = File(path);
+    if (await completed.exists()) await completed.delete();
+    await partial.rename(path);
     return path;
   }
 

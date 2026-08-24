@@ -38,10 +38,6 @@ Future<void> openMusicItem(
         }
         return;
       }
-      ref
-          .read(eventTrackerProvider)
-          .track('play', playableItem, source: source);
-      ref.read(eventTrackerProvider).recordListen(playableItem, source: source);
       final playableQueue = item.playable
           ? (queue ?? [playableItem]).where((entry) => entry.playable).toList()
           : [playableItem];
@@ -53,6 +49,7 @@ Future<void> openMusicItem(
           .playItems(
             playableQueue,
             initialIndex: matchedIndex < 0 ? index : matchedIndex,
+            source: source,
           );
       if (context.mounted) context.push('/player');
       return;

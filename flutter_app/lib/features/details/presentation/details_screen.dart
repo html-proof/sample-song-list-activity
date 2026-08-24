@@ -4,6 +4,7 @@ import 'package:music_hub_app/app/theme.dart';
 import 'package:music_hub_app/core/providers.dart';
 import 'package:music_hub_app/features/details/data/details_repository.dart';
 import 'package:music_hub_app/features/downloads/data/download_repository.dart';
+import 'package:music_hub_app/features/home/presentation/home_controller.dart';
 import 'package:music_hub_app/features/library/presentation/library_controller.dart';
 import 'package:music_hub_app/shared/models/music_item.dart';
 import 'package:music_hub_app/shared/utils/item_actions.dart';
@@ -156,6 +157,9 @@ class _DetailsScaffold extends ConsumerWidget {
                                   .read(libraryRepositoryProvider)
                                   .follow(details.item);
                               ref.invalidate(libraryControllerProvider);
+                              await ref
+                                  .read(homeControllerProvider.notifier)
+                                  .load(refresh: true);
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -301,6 +305,7 @@ class _DetailsScaffold extends ConsumerWidget {
       if (action == 'like') {
         await ref.read(libraryRepositoryProvider).like(track);
         ref.invalidate(libraryControllerProvider);
+        await ref.read(homeControllerProvider.notifier).load(refresh: true);
       } else {
         await ref.read(downloadRepositoryProvider).download(track, (_) {});
       }
