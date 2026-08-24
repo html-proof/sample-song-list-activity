@@ -8,8 +8,8 @@ WORKDIR /srv/music-hub
 RUN addgroup --system app && adduser --system --ingroup app app
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --root-user-action=ignore --upgrade pip && \
+    pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 COPY api ./api
 COPY music_hub ./music_hub
