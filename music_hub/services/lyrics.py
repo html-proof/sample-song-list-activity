@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from music_hub.cache.lyrics_cache import LyricsCache
 from music_hub.lyrics import (
@@ -72,7 +72,7 @@ class LyricsService:
     ) -> LyricsDocument:
         enriched = document.model_copy(
             update={
-                "fetched_at": datetime.now(UTC).isoformat(),
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
                 "song_identity_hash": identity.identity_hash,
             }
         )
