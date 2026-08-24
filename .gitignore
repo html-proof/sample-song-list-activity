@@ -5,3 +5,8 @@ __pycache__/
 .env
 .coverage
 htmlcov/
+node_modules/
+.wrangler/
+cloudflare-cdn/dist/
+cloudflare-cdn/worker-configuration.d.ts
+*.cpuprofile
