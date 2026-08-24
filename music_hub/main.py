@@ -91,6 +91,16 @@ async def build_container(settings: Settings) -> Container:
         else UnsupportedLyricsProvider()
     )
     firebase = FirebaseVerifier(settings)
+    try:
+        mode = await firebase.warm()
+        logger.info("Firebase ID token verification mode: %s", mode)
+    except Exception as exc:
+        # Do not abort the boot: /health and /ready must stay reachable so the
+        # platform can report why every authenticated route is failing.
+        logger.error(
+            "Firebase is unusable; every authenticated endpoint will return 503 (%s)",
+            exc,
+        )
 
     users_repository = UserRepository(database)
     preferences_repository = PreferenceRepository(database)
@@ -216,10 +226,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         container: Container = request.app.state.container
         database_ready = await container.database.ping()
         cache_ready = await container.cache.ping() if container.cache.configured else None
+        try:
+            firebase_status = container.firebase.check()
+        except Exception as exc:
+            firebase_status = f"unavailable: {exc}"
         ready = database_ready
         payload = {
             "status": "ready" if ready else "not_ready",
             "database": "connected" if database_ready else "unavailable",
+            "firebase": firebase_status,
             "redis": (
                 "connected" if cache_ready else "unavailable"
                 if container.cache.configured else "not_configured"
@@ -244,7 +259,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(status_code=502, content=_error("provider_unavailable", str(exc)))
 
     @application.exception_handler(InfrastructureUnavailable)
-    async def infrastructure_handler(_: Request, exc: InfrastructureUnavailable):
+    async def infrastructure_handler(request: Request, exc: InfrastructureUnavailable):
+        logger.error("Infrastructure unavailable on %s: %s", request.url.path, exc)
         return JSONResponse(status_code=503, content=_error("service_unavailable", str(exc)))
 
     @application.exception_handler(InvalidCursor)

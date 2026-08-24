@@ -64,6 +64,7 @@ class Settings(BaseSettings):
 
     firebase_project_id: str | None = None
     firebase_credentials_path: Path | None = None
+    firebase_credentials_json: SecretStr | None = None
     firebase_check_revoked: bool = True
 
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
@@ -83,6 +84,14 @@ class Settings(BaseSettings):
     @classmethod
     def empty_credentials_path_is_none(cls, value):
         return None if value in (None, "") else value
+
+    @field_validator("firebase_credentials_json", mode="before")
+    @classmethod
+    def empty_credentials_json_is_none(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @field_validator("upstash_redis_rest_url", mode="before")
     @classmethod
