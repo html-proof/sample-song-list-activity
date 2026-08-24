@@ -45,6 +45,7 @@ class SearchService:
         if not await self._save_history(user_id):
             return False
         await self.history.add_search(user_id, query, result_type, clicked_result_id)
+        await self._invalidate_recommendations(user_id)
         return True
 
     async def search(self, user_id: UUID, query: str, result_type: str, limit: int) -> dict:
@@ -55,6 +56,7 @@ class SearchService:
         if cached is not None:
             if await self._save_history(user_id):
                 await self.history.add_search(user_id, query, result_type)
+                await self._invalidate_recommendations(user_id)
             return await self._apply_content_settings(user_id, cached)
 
         if result_type == "songs":
@@ -92,7 +94,11 @@ class SearchService:
         await self.cache.set_json(cache_key, result, cache_ttl)
         if await self._save_history(user_id):
             await self.history.add_search(user_id, query, result_type)
+            await self._invalidate_recommendations(user_id)
         return await self._apply_content_settings(user_id, result)
+
+    async def _invalidate_recommendations(self, user_id: UUID) -> None:
+        await self.cache.delete_pattern(f"recommendations:{user_id}:*")
 
     async def _apply_content_settings(self, user_id: UUID, result: dict) -> dict:
         if self.settings_repository is None:

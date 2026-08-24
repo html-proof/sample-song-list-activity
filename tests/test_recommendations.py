@@ -1,10 +1,14 @@
 import base64
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 
+from music_hub.recommendations.candidate_generator import CandidateGenerator
 from music_hub.recommendations.cursor import CursorCodec, InvalidCursor
 from music_hub.recommendations.diversity import diversify
 from music_hub.recommendations.scoring import RecommendationSignals, WeightedScorer
+from music_hub.repositories.recommendations import RecommendationRepository
 
 
 def song(song_id="song-1", artist_id="artist-1", language="Malayalam"):
@@ -90,3 +94,121 @@ def test_diversity_deduplicates_and_caps_artist_dominance():
         "song-1",
         "different-song",
     ]
+
+
+def test_weighted_score_uses_learned_user_affinity():
+    scorer = WeightedScorer()
+    baseline, _ = scorer.score(song(), RecommendationSignals(), "seed")
+    personalized, reasons = scorer.score(
+        song(),
+        RecommendationSignals(
+            artist_affinity={"artist-1": 16},
+            language_affinity={"malayalam": 8},
+            song_affinity={"song-1": 12},
+        ),
+        "seed",
+    )
+
+    assert personalized > baseline + 80
+    assert "learned_artist_interest" in reasons
+    assert "learned_language_interest" in reasons
+    assert "learned_song_interest" in reasons
+
+
+@pytest.mark.asyncio
+async def test_candidate_generation_uses_each_users_interest_artists():
+    provider = AsyncMock()
+    provider.trending.return_value = []
+    provider.new_releases.return_value = []
+    provider.get_artist_tracks.side_effect = lambda artist_id, **_: {
+        "tracks": [song(f"song-for-{artist_id}", artist_id)]
+    }
+    generator = CandidateGenerator(provider)
+
+    result = await generator.generate(
+        {
+            "personalized": True,
+            "languages": {"malayalam": 10},
+            "interest_artists": ["artist-a", "artist-b"],
+            "selected_artist_records": [
+                {"provider_artist_id": "artist-a"},
+            ],
+            "recommendation_settings": {
+                "enabled": True,
+                "cross_language_discovery": False,
+                "discover_new_artists": True,
+            },
+        }
+    )
+
+    assert provider.get_artist_tracks.await_count == 2
+    assert {item["provider_id"] for item in result} == {
+        "song-for-artist-a",
+        "song-for-artist-b",
+    }
+    assert {item["recommendation_source"] for item in result} == {
+        "selected_artist",
+        "interest_artist",
+    }
+
+
+class _UserScopedRecommendationDatabase:
+    def __init__(self, profiles):
+        self.profiles = profiles
+        self.calls = []
+
+    async def fetchrow(self, query, *args):
+        self.calls.append((query, args))
+        assert args and args[0] in self.profiles
+        return None
+
+    async def fetch(self, query, *args):
+        self.calls.append((query, args))
+        user_id = args[0]
+        assert user_id in self.profiles
+        profile = self.profiles[user_id]
+        if "FROM user_languages" in query:
+            return [{"language_code": profile["language"], "priority": 10}]
+        if "FROM user_artists" in query:
+            return [
+                {
+                    "provider_artist_id": profile["artist"],
+                    "artist_name": profile["artist"],
+                    "preference_score": 1.0,
+                }
+            ]
+        if "FROM user_interest_signals" in query:
+            return [
+                {
+                    "entity_type": "artist",
+                    "entity_id": profile["artist"],
+                    "score": 10.0,
+                    "occurrences": 1,
+                    "last_seen_at": None,
+                }
+            ]
+        return []
+
+
+@pytest.mark.asyncio
+async def test_recommendation_repository_never_mixes_user_signals():
+    first_user = uuid4()
+    second_user = uuid4()
+    database = _UserScopedRecommendationDatabase(
+        {
+            first_user: {"language": "Malayalam", "artist": "artist-one"},
+            second_user: {"language": "Tamil", "artist": "artist-two"},
+        }
+    )
+    repository = RecommendationRepository(database)
+
+    first = await repository.signals(first_user)
+    second = await repository.signals(second_user)
+
+    assert first["languages"] == {"malayalam": 10}
+    assert second["languages"] == {"tamil": 10}
+    assert first["interest_artists"] == ["artist-one"]
+    assert second["interest_artists"] == ["artist-two"]
+    assert "artist-two" not in first["artist_affinity"]
+    assert "artist-one" not in second["artist_affinity"]
+    assert all(args[0] in {first_user, second_user} for _, args in database.calls)

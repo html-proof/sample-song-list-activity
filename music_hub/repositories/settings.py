@@ -83,14 +83,66 @@ class SettingsRepository:
                 await connection.execute(f"DELETE FROM {table} WHERE user_id = $1", user_id)
 
     async def clear_history(self, user_id: UUID, kind: str) -> None:
-        table = "listening_history" if kind == "listening" else "search_history"
-        await self.database.execute(f"DELETE FROM {table} WHERE user_id = $1", user_id)
+        async with self.database.transaction() as connection:
+            if kind == "listening":
+                await connection.execute(
+                    "DELETE FROM listening_history WHERE user_id = $1",
+                    user_id,
+                )
+                await connection.execute(
+                    "DELETE FROM music_events WHERE user_id = $1",
+                    user_id,
+                )
+                await connection.execute(
+                    """
+                    DELETE FROM user_interest_signals
+                    WHERE user_id = $1
+                      AND source IN ('listening_history', 'music_event')
+                    """,
+                    user_id,
+                )
+            else:
+                await connection.execute(
+                    "DELETE FROM search_history WHERE user_id = $1",
+                    user_id,
+                )
+                await connection.execute(
+                    """
+                    DELETE FROM user_interest_signals
+                    WHERE user_id = $1
+                      AND source IN ('search_history', 'search_click')
+                    """,
+                    user_id,
+                )
 
     async def reset_recommendations(self, user_id: UUID) -> None:
-        await self.database.execute(
-            "DELETE FROM recommendation_profiles WHERE user_id = $1",
-            user_id,
-        )
+        async with self.database.transaction() as connection:
+            await connection.execute(
+                """
+                INSERT INTO recommendation_profiles (
+                    user_id, profile, model_version, generated_at,
+                    learning_reset_at, expires_at
+                ) VALUES ($1, '{}'::jsonb, 'weighted-v2', now(), now(), NULL)
+                ON CONFLICT (user_id) DO UPDATE
+                SET profile = '{}'::jsonb,
+                    model_version = 'weighted-v2',
+                    generated_at = now(),
+                    learning_reset_at = now(),
+                    expires_at = NULL
+                """,
+                user_id,
+            )
+            await connection.execute(
+                """
+                DELETE FROM user_interest_signals
+                WHERE user_id = $1
+                  AND source IN (
+                    'listening_history', 'music_event',
+                    'search_history', 'search_click'
+                  )
+                """,
+                user_id,
+            )
 
     async def set_device_notifications(self, user_id: UUID, enabled: bool) -> None:
         await self.database.execute(
