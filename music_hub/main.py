@@ -69,8 +69,11 @@ async def build_container(settings: Settings) -> Container:
     )
     try:
         await cache.connect()
-    except Exception:
-        logger.exception("Redis is unavailable; continuing without distributed cache")
+    except Exception as exc:
+        logger.warning(
+            "Redis is unavailable; continuing without distributed cache (%s)",
+            type(exc).__name__,
+        )
         await cache.close()
 
     provider = GaanaProvider()

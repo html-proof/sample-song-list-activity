@@ -65,3 +65,36 @@ def test_upstash_rest_credentials_must_be_configured_together():
             upstash_redis_rest_url="https://redis.example.test",
             upstash_redis_rest_token=None,
         )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("redis.example.test", "https://redis.example.test"),
+        ("//redis.example.test", "https://redis.example.test"),
+        (
+            "[https://redis.example.test](https://redis.example.test)",
+            "https://redis.example.test",
+        ),
+        ('"https://redis.example.test/"', "https://redis.example.test"),
+    ],
+)
+def test_upstash_rest_url_is_normalized(value, expected):
+    settings = Settings(
+        database_url=None,
+        redis_url=None,
+        upstash_redis_rest_url=value,
+        upstash_redis_rest_token="secret",
+    )
+
+    assert settings.upstash_redis_rest_url == expected
+
+
+def test_upstash_rest_url_rejects_non_http_protocols():
+    with pytest.raises(ValidationError, match="valid HTTP or HTTPS URL"):
+        Settings(
+            database_url=None,
+            redis_url=None,
+            upstash_redis_rest_url="redis://redis.example.test",
+            upstash_redis_rest_token="secret",
+        )

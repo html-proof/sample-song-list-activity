@@ -1,8 +1,34 @@
+import re
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+_MARKDOWN_LINK = re.compile(r"^\[[^\]]*\]\(([^)]+)\)$")
+
+
+def normalize_http_url(value: object) -> str | None:
+    """Normalize deployment-dashboard URL values without accepting bad schemes."""
+    if value is None:
+        return None
+    text = str(value).strip().strip("\"'").strip()
+    if not text:
+        return None
+    markdown = _MARKDOWN_LINK.fullmatch(text)
+    if markdown:
+        text = markdown.group(1).strip().strip("\"'")
+    text = text.strip("<>").strip()
+    if text.startswith("//"):
+        text = f"https:{text}"
+    elif "://" not in text:
+        text = f"https://{text}"
+    parsed = urlsplit(text)
+    if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("must be a valid HTTP or HTTPS URL")
+    return text.rstrip("/")
 
 
 class Settings(BaseSettings):
@@ -50,6 +76,11 @@ class Settings(BaseSettings):
     @classmethod
     def empty_credentials_path_is_none(cls, value):
         return None if value in (None, "") else value
+
+    @field_validator("upstash_redis_rest_url", mode="before")
+    @classmethod
+    def normalize_upstash_rest_url(cls, value):
+        return normalize_http_url(value)
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":
