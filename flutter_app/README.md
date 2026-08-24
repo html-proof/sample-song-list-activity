@@ -35,6 +35,16 @@ flutter run --dart-define=API_BASE_URL=http://localhost:8000 `
 
 For an Android emulator, the default API URL is `http://10.0.2.2:8000`. For web and desktop it is `http://localhost:8000`. A physical device needs the computer's LAN address or a secure hosted API URL.
 
+Release builds default to the Cloudflare CDN endpoint:
+
+```text
+https://music-hub-cdn.imeseban.workers.dev
+```
+
+`API_BASE_URL` can still override it for staging or a custom domain. The CDN
+streams authenticated application requests directly to Render without caching
+them and edge-caches only explicitly public documentation routes.
+
 For iOS add `FIREBASE_IOS_APP_ID` and, if different, `FIREBASE_IOS_BUNDLE_ID`. Production builds should always use HTTPS.
 
 ## Check
@@ -42,7 +52,7 @@ For iOS add `FIREBASE_IOS_APP_ID` and, if different, `FIREBASE_IOS_BUNDLE_ID`. P
 ```powershell
 flutter analyze
 flutter test
-flutter build web --dart-define=API_BASE_URL=https://api.example.com
+flutter build web --dart-define=API_BASE_URL=https://music-hub-cdn.imeseban.workers.dev
 ```
 
 Offline downloads intentionally reject HLS playlists. Shipping HLS offline support requires provider-authorized packaging and encryption, not merely saving a playlist URL.

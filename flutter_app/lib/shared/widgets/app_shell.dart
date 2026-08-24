@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:music_hub_app/features/lyrics/presentation/controllers/lyrics_controller.dart';
 import 'package:music_hub_app/features/player/presentation/mini_player.dart';
 
 final connectivityProvider = StreamProvider<List<ConnectivityResult>>((ref) {
@@ -15,6 +16,7 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(lyricsPrefetchProvider);
     final results = ref.watch(connectivityProvider).value;
     final offline =
         results?.isNotEmpty == true &&

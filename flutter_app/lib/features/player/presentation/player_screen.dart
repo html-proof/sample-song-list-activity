@@ -9,6 +9,7 @@ import 'package:music_hub_app/features/downloads/data/download_repository.dart';
 import 'package:music_hub_app/features/downloads/presentation/downloads_screen.dart';
 import 'package:music_hub_app/features/home/presentation/home_controller.dart';
 import 'package:music_hub_app/features/library/presentation/library_controller.dart';
+import 'package:music_hub_app/features/lyrics/presentation/screens/lyrics_view.dart';
 import 'package:music_hub_app/features/player/presentation/player_palette.dart';
 import 'package:music_hub_app/features/player/presentation/player_providers.dart';
 import 'package:music_hub_app/shared/models/music_item.dart';
@@ -44,10 +45,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
   Widget build(BuildContext context) {
     final media = ref.watch(currentMediaItemProvider).value;
     final playback = ref.watch(playbackStateProvider).value;
-    final progress =
-        ref.watch(playerProgressProvider).valueOrNull ??
-        ref.read(audioHandlerProvider).currentProgress;
-    final position = progress.position;
     if (media == null) {
       return Scaffold(
         backgroundColor: PlayerPalette.fallback.background,
@@ -65,7 +62,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
             .watch(playerPaletteProvider(media.artUri?.toString()))
             .valueOrNull ??
         PlayerPalette.fallback;
-    final duration = progress.duration ?? media.duration;
     final playing = playback?.playing == true;
     final music = _toMusicItem(media);
     final error = playback?.processingState == AudioProcessingState.error
@@ -157,12 +153,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             ),
                           ),
                           const SizedBox(height: 22),
-                          _SeekBar(
-                            position: position,
-                            buffered: progress.buffered,
-                            duration: duration,
-                            onSeek: ref.read(audioHandlerProvider).seek,
-                          ),
+                          _PlayerSeekBar(mediaDuration: media.duration),
                           const SizedBox(height: 12),
                           _TransportControls(
                             playing: playing,
@@ -237,6 +228,25 @@ class _SeekBar extends StatefulWidget {
 
   @override
   State<_SeekBar> createState() => _SeekBarState();
+}
+
+class _PlayerSeekBar extends ConsumerWidget {
+  const _PlayerSeekBar({required this.mediaDuration});
+
+  final Duration? mediaDuration;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final progress =
+        ref.watch(playerProgressProvider).valueOrNull ??
+        ref.read(audioHandlerProvider).currentProgress;
+    return _SeekBar(
+      position: progress.position,
+      buffered: progress.buffered,
+      duration: progress.duration ?? mediaDuration,
+      onSeek: ref.read(audioHandlerProvider).seek,
+    );
+  }
 }
 
 class _SeekBarState extends State<_SeekBar> {
@@ -526,8 +536,7 @@ class _SecondaryActions extends ConsumerWidget {
         _SmallAction(
           icon: Icons.lyrics_outlined,
           label: 'Lyrics',
-          onTap: () =>
-              _message(context, 'Lyrics are not available for this track'),
+          onTap: () => showLyricsView(context),
         ),
         _SmallAction(
           icon: Icons.queue_music_rounded,

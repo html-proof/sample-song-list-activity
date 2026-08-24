@@ -1,0 +1,15 @@
+# Copy to android/key.properties and fill in the values you chose when running
+# keytool. This template is committed; key.properties itself is gitignored.
+#
+#   keytool -genkeypair -v -keystore C:/Users/<you>/upload-keystore.jks \
+#     -storetype PKCS12 -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# storeFile may be absolute, or relative to android/app.
+# Never commit the keystore or key.properties, and back both up somewhere safe:
+# losing the upload key means you can no longer ship updates to the same Play
+# listing. If android/key.properties is missing, release builds silently fall
+# back to the debug key and are NOT publishable.
+storePassword=
+keyPassword=
+keyAlias=upload
+storeFile=C:/Users/Seban/upload-keystore.jks
