@@ -169,7 +169,7 @@ python3 -m pytest tests/ -v
 ```yaml
 services:
   gaanapy:
-    image: zingytomato/gaanapy:main
+    image: ghcr.io/zingytomato/gaanapy:latest
     container_name: gaanapy
     ports:
       - "8000:8000"
