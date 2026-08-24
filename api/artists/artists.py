@@ -1,10 +1,11 @@
 import asyncio
+from urllib.parse import quote_plus
 
 class Artists:
     async def search_artists(self, search_query: str, limit: int) -> list:
         endpoints = self.api_endpoints
         errors = self.errors
-        result = await self._safe_request("POST", endpoints.search_artists_url + search_query)
+        result = await self._safe_request("POST", endpoints.search_artists_url + quote_plus(search_query))
         if isinstance(result, dict) and "error" in result:
             return result
         artist_ids = []

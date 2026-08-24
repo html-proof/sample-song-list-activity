@@ -2,6 +2,32 @@
 
 An unofficial JSON API for [Gaana](https://gaana.com), an Indian music streaming service. Built with FastAPI.
 
+## Production Music Hub backend
+
+This repository now also contains an authenticated, personalized API under
+`music_hub/`. It keeps GaanaPy as the catalog provider while adding Firebase
+Google authentication, internal UUID users, Supabase PostgreSQL persistence,
+optional Redis/Upstash caching, personal libraries, playlists, history, events,
+cursor-based recommendations, and an aggregated home feed.
+
+The original API remains available with `uvicorn app:app`. The production API
+runs separately with:
+
+```sh
+pip install -r requirements-dev.txt
+python -m uvicorn music_hub.main:app --reload
+```
+
+See [PRODUCTION_BACKEND.md](PRODUCTION_BACKEND.md) for setup, architecture,
+database migration, Firebase configuration, Flutter authentication, and the
+API v1 endpoint map.
+
+The cross-platform client is in [`flutter_app/`](flutter_app/). It includes
+Firebase sign-in, onboarding, personalized discovery, search, library and
+playlist views, downloads, and a persistent background-capable audio player.
+See [`flutter_app/README.md`](flutter_app/README.md) for its platform setup and
+run commands.
+
 ## Usage
 
 Start the server (see [Local Development](#local-development)), then open the interactive docs:

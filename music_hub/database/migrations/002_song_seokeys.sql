@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE listening_history ADD COLUMN IF NOT EXISTS seokey TEXT;
+ALTER TABLE liked_songs ADD COLUMN IF NOT EXISTS seokey TEXT;
+
+COMMIT;

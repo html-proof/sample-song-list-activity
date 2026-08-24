@@ -1,8 +1,11 @@
+from urllib.parse import quote_plus
+
+
 class NewReleases:
     async def get_new_releases(self, language: str, limit: int) -> dict:
         endpoints = self.api_endpoints
         errors = self.errors
-        result = await self._safe_request("POST", endpoints.new_releases_url + language)
+        result = await self._safe_request("POST", endpoints.new_releases_url + quote_plus(language))
         if isinstance(result, dict) and "error" in result:
             return result
         track_seokeys = []
@@ -21,6 +24,6 @@ class NewReleases:
         if len(track_seokeys) == 0 and len(album_seokeys) == 0:
             return await errors.no_results()
         data = {}
-        data['tracks'] = await self.get_track_info(track_seokeys)
-        data['albums'] = await self.get_album_info(album_seokeys, False)
+        data['tracks'] = await self.get_track_info(track_seokeys) if track_seokeys else []
+        data['albums'] = await self.get_album_info(album_seokeys, False) if album_seokeys else []
         return data

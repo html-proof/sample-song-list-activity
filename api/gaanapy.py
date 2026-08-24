@@ -20,18 +20,26 @@ class GaanaPy(Songs, Albums, Artists, Trending, NewReleases, Charts, Playlists, 
         self.api_endpoints = endpoints
         self.functions = Functions()
         self.errors = Errors()
+        self._request_semaphore = asyncio.Semaphore(20)
 
     async def _safe_request(self, method: str, url: str, **kwargs) -> dict:
-        try:
-            if method == "GET":
-                response = await self.aiohttp.get(url, **kwargs)
-            else:
-                response = await self.aiohttp.post(url, **kwargs)
-            if response.status != 200:
+        for attempt in range(3):
+            try:
+                async with self._request_semaphore:
+                    async with self.aiohttp.request(method, url, **kwargs) as response:
+                        if response.status == 200:
+                            result = await response.json()
+                            if isinstance(result, dict):
+                                return result
+                            return await self.errors.no_results()
+                        retryable = response.status == 429 or response.status >= 500
+                if retryable and attempt < 2:
+                    await asyncio.sleep(0.25 * (2 ** attempt))
+                    continue
                 return await self.errors.no_results()
-            result = await response.json()
-            if not isinstance(result, dict):
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError):
+                if attempt < 2:
+                    await asyncio.sleep(0.25 * (2 ** attempt))
+                    continue
                 return await self.errors.no_results()
-            return result
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError):
-            return await self.errors.no_results()
+        return await self.errors.no_results()
