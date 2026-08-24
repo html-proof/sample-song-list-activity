@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     recommendation_cache_ttl: int = 300
     seen_songs_ttl: int = 21600
 
+    lyrics_enabled: bool = True
+    lyrics_user_agent: str = "MusicHub/1.0 (https://gaanapy.pages.dev)"
+    lyrics_timeout_seconds: float = 6.0
+    # Below this confidence the match is discarded: showing the wrong version's
+    # lyrics is a worse experience than showing none.
+    lyrics_min_confidence: float = 0.62
+    lyrics_cache_ttl: int = 604800
+    lyrics_negative_cache_ttl: int = 3600
+
     @field_validator("firebase_credentials_path", mode="before")
     @classmethod
     def empty_credentials_path_is_none(cls, value):
