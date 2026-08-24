@@ -19,6 +19,11 @@ class MusicEventType(str, Enum):
     remove_playlist = "remove_playlist"
     share = "share"
     download = "download"
+    user_pressed_next = "user_pressed_next"
+    user_pressed_previous = "user_pressed_previous"
+    track_failed_to_play = "track_failed_to_play"
+    network_failure = "network_failure"
+    track_end = "track_end"
 
 
 class ListeningHistoryCreate(BaseModel):
