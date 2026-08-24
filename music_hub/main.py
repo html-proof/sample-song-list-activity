@@ -102,9 +102,9 @@ async def build_container(settings: Settings) -> Container:
         settings_service,
     )
     music = MusicService(provider, cache, settings)
-    history = HistoryService(history_repository, settings_service)
-    library = LibraryService(library_repository)
-    playlists = PlaylistService(playlists_repository)
+    history = HistoryService(history_repository, settings_service, cache)
+    library = LibraryService(library_repository, cache)
+    playlists = PlaylistService(playlists_repository, cache)
     devices = DeviceService(devices_repository)
     home = HomeService(
         provider,

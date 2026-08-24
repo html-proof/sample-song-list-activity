@@ -24,7 +24,10 @@ def candidate_artist_ids(candidate: dict) -> set[str]:
 @dataclass
 class RecommendationSignals:
     languages: dict[str, int] = field(default_factory=dict)
+    language_affinity: dict[str, float] = field(default_factory=dict)
     selected_artists: dict[str, float] = field(default_factory=dict)
+    artist_affinity: dict[str, float] = field(default_factory=dict)
+    song_affinity: dict[str, float] = field(default_factory=dict)
     followed_artists: set[str] = field(default_factory=set)
     liked_songs: set[str] = field(default_factory=set)
     completed_songs: set[str] = field(default_factory=set)
@@ -54,9 +57,37 @@ class WeightedScorer:
             score += 30 + min(signals.languages[language], 10)
             reasons.append("preferred_language")
 
-        if artist_ids & set(signals.selected_artists):
-            score += 40
+        language_affinity = signals.language_affinity.get(language, 0)
+        if language_affinity:
+            score += max(-30, min(language_affinity * 1.5, 30))
+            reasons.append(
+                "learned_language_interest"
+                if language_affinity > 0
+                else "learned_language_dislike"
+            )
+
+        selected_scores = [
+            signals.selected_artists[artist_id]
+            for artist_id in artist_ids
+            if artist_id in signals.selected_artists
+        ]
+        if selected_scores:
+            score += 40 + min(max(selected_scores) * 5, 20)
             reasons.append("selected_artist")
+
+        artist_scores = [
+            signals.artist_affinity[artist_id]
+            for artist_id in artist_ids
+            if artist_id in signals.artist_affinity
+        ]
+        if artist_scores:
+            artist_score = max(artist_scores)
+            score += max(-70, min(artist_score * 2.5, 70))
+            reasons.append(
+                "learned_artist_interest"
+                if artist_score > 0
+                else "learned_artist_dislike"
+            )
 
         if artist_ids & signals.followed_artists:
             score += 45
@@ -65,6 +96,15 @@ class WeightedScorer:
         if song_id in signals.liked_songs:
             score += 35
             reasons.append("liked_song")
+
+        song_affinity = signals.song_affinity.get(song_id, 0)
+        if song_affinity:
+            score += max(-90, min(song_affinity * 3, 90))
+            reasons.append(
+                "learned_song_interest"
+                if song_affinity > 0
+                else "learned_song_dislike"
+            )
 
         if song_id in signals.completed_songs:
             score += 20
@@ -103,6 +143,9 @@ class WeightedScorer:
         if source == "selected_artist":
             score += 10 + (100 - signals.exploration_level) * 0.1
             reasons.append("from_selected_artist")
+        elif source == "interest_artist":
+            score += 8 + (100 - signals.exploration_level) * 0.08
+            reasons.append("from_learned_interest")
         elif source == "new_release":
             score += 5 + signals.exploration_level * 0.2
             reasons.append("new_release")
