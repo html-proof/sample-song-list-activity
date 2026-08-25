@@ -9,6 +9,7 @@ class LoginScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(authControllerProvider);
+    final palette = AppPalette.of(context);
     ref.listen(authControllerProvider, (_, next) {
       if (next.hasError) {
         ScaffoldMessenger.of(context)
@@ -17,7 +18,7 @@ class LoginScreen extends ConsumerWidget {
     });
     return Scaffold(
       body: CustomPaint(
-        painter: _ContourPainter(),
+        painter: _ContourPainter(palette.ink),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -42,7 +43,7 @@ class LoginScreen extends ConsumerWidget {
                       ],
                     ),
                     const Spacer(),
-                    const SizedBox(
+                    SizedBox(
                       height: 290,
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -52,7 +53,7 @@ class LoginScreen extends ConsumerWidget {
                             right: 26,
                             child: _MusicBlob(
                               size: 126,
-                              color: AppTheme.blue,
+                              color: palette.blue,
                               icon: Icons.headphones_rounded,
                               rotation: 0.16,
                             ),
@@ -62,7 +63,7 @@ class LoginScreen extends ConsumerWidget {
                             top: 88,
                             child: _MusicBlob(
                               size: 154,
-                              color: AppTheme.peach,
+                              color: palette.peach,
                               icon: Icons.album_rounded,
                               rotation: -0.12,
                             ),
@@ -72,7 +73,7 @@ class LoginScreen extends ConsumerWidget {
                             bottom: 0,
                             child: _MusicBlob(
                               size: 162,
-                              color: AppTheme.lilac,
+                              color: palette.lilac,
                               icon: Icons.graphic_eq_rounded,
                               rotation: 0.08,
                             ),
@@ -82,12 +83,18 @@ class LoginScreen extends ConsumerWidget {
                             top: 92,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: AppTheme.accent,
+                                color: palette.accent,
                                 shape: BoxShape.circle,
                               ),
-                              child: Padding(
+                              child: const Padding(
                                 padding: EdgeInsets.all(16),
-                                child: Icon(Icons.play_arrow_rounded, size: 34),
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 34,
+                                  // The accent stays lime in both themes, so
+                                  // this icon must not follow the foreground.
+                                  color: AppTheme.ink,
+                                ),
                               ),
                             ),
                           ),
@@ -120,10 +127,10 @@ class LoginScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const Text(
+                    Text(
                       'Your languages, favorite artists, and a soundtrack that becomes more personal every day.',
                       style: TextStyle(
-                        color: AppTheme.muted,
+                        color: palette.muted,
                         height: 1.45,
                         fontSize: 15,
                       ),
@@ -136,11 +143,11 @@ class LoginScreen extends ConsumerWidget {
                                 .read(authControllerProvider.notifier)
                                 .signIn(),
                       icon: state.isLoading
-                          ? const SizedBox.square(
+                          ? SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                               ),
                             )
                           : const Icon(Icons.g_mobiledata_rounded, size: 26),
@@ -154,10 +161,10 @@ class LoginScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 13),
-                    const Center(
+                    Center(
                       child: Text(
                         'Secure sign-in powered by Firebase',
-                        style: TextStyle(color: AppTheme.muted, fontSize: 11),
+                        style: TextStyle(color: palette.muted, fontSize: 11),
                       ),
                     ),
                   ],
@@ -175,15 +182,18 @@ class _BrandMark extends StatelessWidget {
   const _BrandMark();
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 36,
-    height: 36,
-    decoration: BoxDecoration(
-      color: AppTheme.ink,
-      borderRadius: BorderRadius.circular(11),
-    ),
-    child: const Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 21),
-  );
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: palette.navBar,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Icon(Icons.graphic_eq_rounded, color: palette.onNavBar, size: 21),
+    );
+  }
 }
 
 class _MusicBlob extends StatelessWidget {
@@ -207,7 +217,7 @@ class _MusicBlob extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        border: Border.all(color: AppTheme.ink, width: 1.2),
+        border: Border.all(color: AppPalette.of(context).ink, width: 1.2),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(62),
           topRight: Radius.circular(34),
@@ -221,10 +231,16 @@ class _MusicBlob extends StatelessWidget {
 }
 
 class _ContourPainter extends CustomPainter {
+  const _ContourPainter(this.ink);
+
+  /// Passed in because a painter has no BuildContext to resolve the palette
+  /// from, and a fixed dark line is invisible on the dark background.
+  final Color ink;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.ink.withValues(alpha: 0.10)
+      ..color = ink.withValues(alpha: 0.10)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (var i = 0; i < 4; i++) {
@@ -244,5 +260,6 @@ class _ContourPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _ContourPainter oldDelegate) =>
+      oldDelegate.ink != ink;
 }

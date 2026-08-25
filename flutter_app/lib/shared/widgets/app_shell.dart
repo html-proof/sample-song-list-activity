@@ -34,9 +34,12 @@ class AppShell extends ConsumerWidget {
                   horizontal: 16,
                   vertical: 7,
                 ),
+                // The banner is a fixed dark orange in both themes, so the
+                // label cannot inherit the theme foreground.
                 child: const Text(
                   'Offline — showing saved content where available',
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
             ),

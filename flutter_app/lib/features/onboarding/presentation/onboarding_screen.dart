@@ -12,6 +12,7 @@ class OnboardingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = AppPalette.of(context);
     final state = ref.watch(onboardingControllerProvider);
     final controller = ref.read(onboardingControllerProvider.notifier);
     return Scaffold(
@@ -21,16 +22,16 @@ class OnboardingScreen extends ConsumerWidget {
                 onPressed: controller.back,
                 icon: const Icon(Icons.arrow_back_rounded),
               )
-            : const Padding(
-                padding: EdgeInsets.all(10),
+            : Padding(
+                padding: const EdgeInsets.all(10),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: palette.navBar,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.graphic_eq_rounded,
-                    color: Colors.white,
+                    color: palette.onNavBar,
                     size: 19,
                   ),
                 ),
@@ -41,8 +42,8 @@ class OnboardingScreen extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 18),
             child: Text(
               '${state.step + 1} / 2',
-              style: const TextStyle(
-                color: AppTheme.muted,
+              style: TextStyle(
+                color: palette.muted,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -61,8 +62,8 @@ class OnboardingScreen extends ConsumerWidget {
                       height: 4,
                       decoration: BoxDecoration(
                         color: i <= state.step
-                            ? AppTheme.ink
-                            : AppTheme.surfaceHigh,
+                            ? palette.ink
+                            : palette.panelHigh,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -113,11 +114,11 @@ class OnboardingScreen extends ConsumerWidget {
                 minimumSize: const Size.fromHeight(56),
               ),
               child: state.saving
-                  ? const SizedBox.square(
+                  ? SizedBox.square(
                       dimension: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.onPrimary,
                       ),
                     )
                   : Row(
@@ -147,6 +148,7 @@ class _Languages extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final languages = ref.watch(availableLanguagesProvider);
+    final palette = AppPalette.of(context);
     return ListView(
       key: const ValueKey('languages'),
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 120),
@@ -168,9 +170,9 @@ class _Languages extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Pick at least one. We will tune your first mixes around these choices.',
-          style: TextStyle(color: AppTheme.muted, height: 1.4),
+          style: TextStyle(color: palette.muted, height: 1.4),
         ),
         const SizedBox(height: 30),
         languages.when(
@@ -185,9 +187,9 @@ class _Languages extends ConsumerWidget {
                   selected: state.languages.contains(language),
                   showCheckmark: false,
                   avatar: state.languages.contains(language)
-                      ? const Icon(
+                      ? Icon(
                           Icons.check_rounded,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onPrimary,
                           size: 17,
                         )
                       : null,
@@ -201,7 +203,7 @@ class _Languages extends ConsumerWidget {
         Container(
           padding: const EdgeInsets.all(22),
           decoration: BoxDecoration(
-            color: AppTheme.peach,
+            color: palette.peach,
             borderRadius: BorderRadius.circular(30),
           ),
           child: const Row(
@@ -230,6 +232,7 @@ class _Artists extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
     return ListView(
       key: const ValueKey('artists'),
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 120),
@@ -253,7 +256,7 @@ class _Artists extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           '${state.artists.length} selected · choose at least 3',
-          style: const TextStyle(color: AppTheme.muted),
+          style: TextStyle(color: palette.muted),
         ),
         const SizedBox(height: 22),
         TextField(
@@ -270,19 +273,19 @@ class _Artists extends StatelessWidget {
           error: (error, _) => Text(error.toString()),
           data: (items) {
             if (items.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.only(top: 50),
+              return Padding(
+                padding: const EdgeInsets.only(top: 50),
                 child: Column(
                   children: [
                     Icon(
                       Icons.person_search_rounded,
                       size: 52,
-                      color: AppTheme.muted,
+                      color: palette.muted,
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
                       'Search to shape your first playlist',
-                      style: TextStyle(color: AppTheme.muted),
+                      style: TextStyle(color: palette.muted),
                     ),
                   ],
                 ),
@@ -344,7 +347,7 @@ class _ArtistChoice extends StatelessWidget {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_rounded),
+                  child: const Icon(Icons.check_rounded, color: AppTheme.ink),
                 ),
             ],
           ),

@@ -28,6 +28,22 @@ class LocalStore {
     });
   }
 
+  /// Reads an entry without discarding it once the TTL lapses, so callers that
+  /// can paint stale content immediately and refresh afterwards are able to.
+  /// [readCached] keeps its evicting behaviour for callers that cannot.
+  ({dynamic value, bool fresh, int expiresAt})? readCacheEntry(String key) {
+    final entry = _cache.get(key);
+    if (entry is! Map) return null;
+    final expiry = entry['expiresAt'];
+    final value = entry['value'];
+    if (expiry is! int || value is! String) return null;
+    return (
+      value: jsonDecode(value),
+      fresh: DateTime.now().millisecondsSinceEpoch <= expiry,
+      expiresAt: expiry,
+    );
+  }
+
   dynamic readCached(String key) {
     final entry = _cache.get(key);
     if (entry is! Map) return null;

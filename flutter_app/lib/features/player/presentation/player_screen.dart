@@ -4,6 +4,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:music_hub_app/app/theme.dart';
 import 'package:music_hub_app/core/providers.dart';
 import 'package:music_hub_app/features/downloads/data/download_repository.dart';
 import 'package:music_hub_app/features/downloads/presentation/downloads_screen.dart';
@@ -70,6 +71,10 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
 
     return Theme(
       data: ThemeData.dark(useMaterial3: true).copyWith(
+        // The player is always dark, so it carries the dark palette regardless
+        // of the system setting. Without this any descendant reading the
+        // palette would fall back and paint for the wrong brightness.
+        extensions: const <ThemeExtension<dynamic>>[AppTheme.darkPalette],
         colorScheme: ColorScheme.fromSeed(
           seedColor: palette.primary,
           brightness: Brightness.dark,

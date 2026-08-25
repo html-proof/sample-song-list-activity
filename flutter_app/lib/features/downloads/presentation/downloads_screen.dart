@@ -12,13 +12,14 @@ class DownloadsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = AppPalette.of(context);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 78,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Offline',
               style: TextStyle(
                 fontSize: 31,
@@ -30,7 +31,7 @@ class DownloadsScreen extends ConsumerWidget {
               'Music that travels with you',
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.muted,
+                color: palette.muted,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -48,34 +49,39 @@ class DownloadsView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(downloadsRevisionProvider);
+    final palette = AppPalette.of(context);
     final items = ref.watch(downloadRepositoryProvider).items();
     return items.isEmpty
-        ? const Center(
+        ? Center(
             child: Padding(
-              padding: EdgeInsets.all(32),
+              padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppTheme.peach,
+                      color: palette.peach,
                       shape: BoxShape.circle,
                     ),
                     child: Padding(
-                      padding: EdgeInsets.all(22),
+                      padding: const EdgeInsets.all(22),
                       child: Icon(
                         Icons.download_for_offline_outlined,
                         size: 44,
+                        color: palette.onTile,
                       ),
                     ),
                   ),
-                  SizedBox(height: 18),
-                  Text('No offline music yet', style: TextStyle(fontSize: 20)),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 18),
+                  const Text(
+                    'No offline music yet',
+                    style: TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 8),
                   Text(
                     'Downloads are stored only on this device and require a provider-supported direct audio file.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.muted),
+                    style: TextStyle(color: palette.muted),
                   ),
                 ],
               ),

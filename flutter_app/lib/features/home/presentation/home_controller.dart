@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_hub_app/core/providers.dart';
 import 'package:music_hub_app/features/home/data/home_repository.dart';
@@ -24,6 +26,20 @@ class HomeController extends StateNotifier<AsyncValue<HomeFeed>> {
   Future<void> load({bool refresh = false}) async {
     if (refresh || !state.hasValue) state = const AsyncLoading();
     state = await AsyncValue.guard(() => _repository.load(refresh: refresh));
+    if (!refresh && state.hasValue && _repository.servedStale) {
+      unawaited(_revalidate());
+    }
+  }
+
+  /// Replaces an expired feed that was painted from disk. Failure is ignored on
+  /// purpose: the user is already looking at usable content.
+  Future<void> _revalidate() async {
+    try {
+      final feed = await _repository.revalidate();
+      if (mounted) state = AsyncData(feed);
+    } catch (_) {
+      // Keep the cached feed on screen.
+    }
   }
 
   Future<void> loadMore() async {

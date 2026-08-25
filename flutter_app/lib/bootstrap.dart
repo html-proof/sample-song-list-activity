@@ -16,13 +16,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    ).timeout(const Duration(seconds: 15));
-    final store = await LocalStore.open().timeout(const Duration(seconds: 15));
-    final preferences = await SharedPreferences.getInstance().timeout(
-      const Duration(seconds: 15),
-    );
+    // Firebase, Hive and SharedPreferences do not depend on each other, so the
+    // three cold-start costs overlap instead of stacking. Future.wait attaches
+    // its listeners synchronously, which keeps a fast failure in one of them
+    // from being reported as an unhandled async error while the others run.
+    final started = await Future.wait<Object?>([
+      Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+      LocalStore.open(),
+      SharedPreferences.getInstance(),
+    ]).timeout(const Duration(seconds: 15));
+    final store = started[1]! as LocalStore;
+    final preferences = started[2]! as SharedPreferences;
     final auth = FirebaseAuth.instance;
     final api = ApiClient(auth);
     final tracker = EventTracker(api);

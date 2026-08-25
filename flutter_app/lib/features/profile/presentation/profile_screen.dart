@@ -39,7 +39,7 @@ class ProfileScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppTheme.peach,
+              color: AppPalette.of(context).peach,
               borderRadius: BorderRadius.circular(32),
             ),
             child: Row(
@@ -50,10 +50,10 @@ class ProfileScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'LISTENER PROFILE',
                         style: TextStyle(
-                          color: AppTheme.muted,
+                          color: AppPalette.of(context).muted,
                           fontSize: 10,
                           letterSpacing: 1.2,
                         ),
@@ -74,8 +74,8 @@ class ProfileScreen extends ConsumerWidget {
                         user?.email ?? '',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppTheme.muted,
+                        style: TextStyle(
+                          color: AppPalette.of(context).muted,
                           fontSize: 12,
                         ),
                       ),
@@ -89,7 +89,7 @@ class ProfileScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 18),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: AppPalette.of(context).panel,
               borderRadius: BorderRadius.circular(26),
             ),
             child: const Row(
@@ -113,7 +113,7 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.surface,
+              color: AppPalette.of(context).panel,
               borderRadius: BorderRadius.circular(28),
             ),
             child: Column(
@@ -123,30 +123,30 @@ class ProfileScreen extends ConsumerWidget {
                     horizontal: 18,
                     vertical: 7,
                   ),
-                  leading: const _ListIcon(
+                  leading: _ListIcon(
                     icon: Icons.tune_rounded,
-                    color: AppTheme.blue,
+                    color: AppPalette.of(context).blue,
                   ),
                   title: const Text(
                     'Playback & content',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Quality, autoplay and privacy',
-                    style: TextStyle(color: AppTheme.muted),
+                    style: TextStyle(color: AppPalette.of(context).muted),
                   ),
                   trailing: const Icon(Icons.arrow_outward_rounded),
                   onTap: () => context.push('/settings'),
                 ),
                 const Divider(height: 1, indent: 74),
-                const ListTile(
+                ListTile(
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 7,
                   ),
                   leading: _ListIcon(
                     icon: Icons.info_outline_rounded,
-                    color: AppTheme.mint,
+                    color: AppPalette.of(context).mint,
                   ),
                   title: Text(
                     'Music Hub',
@@ -154,7 +154,7 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   subtitle: Text(
                     'Version 1.0.0',
-                    style: TextStyle(color: AppTheme.muted),
+                    style: TextStyle(color: AppPalette.of(context).muted),
                   ),
                 ),
               ],
@@ -184,7 +184,10 @@ class _ProfileMetric extends StatelessWidget {
     children: [
       Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
       const SizedBox(height: 3),
-      Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+      Text(
+        label,
+        style: TextStyle(color: AppPalette.of(context).muted, fontSize: 11),
+      ),
     ],
   );
 }
@@ -194,7 +197,7 @@ class _MetricDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Container(width: 1, height: 28, color: AppTheme.surfaceHigh);
+      Container(width: 1, height: 28, color: AppPalette.of(context).panelHigh);
 }
 
 class _ListIcon extends StatelessWidget {

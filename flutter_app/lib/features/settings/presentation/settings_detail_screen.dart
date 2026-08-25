@@ -548,12 +548,12 @@ class _SettingsDetailScreenState extends ConsumerState<SettingsDetailScreen> {
         ],
       ),
       const SizedBox(height: 14),
-      const Padding(
+      Padding(
         padding: EdgeInsets.symmetric(horizontal: 6),
         child: Text(
           'Clearing temporary data does not remove your playlists, likes, '
           'account settings or downloaded music.',
-          style: TextStyle(color: AppTheme.muted, height: 1.4),
+          style: TextStyle(color: AppPalette.of(context).muted, height: 1.4),
         ),
       ),
     ];
@@ -613,37 +613,37 @@ class _Intro extends StatelessWidget {
       SettingsPage.appearance => (
         Icons.palette_outlined,
         'Make Music Hub feel comfortable on every device.',
-        AppTheme.peach,
+        AppPalette.of(context).peach,
       ),
       SettingsPage.playback => (
         Icons.graphic_eq_rounded,
         'Shape how every song sounds and flows into the next.',
-        AppTheme.blue,
+        AppPalette.of(context).blue,
       ),
       SettingsPage.downloads => (
         Icons.download_for_offline_outlined,
         'Choose what stays ready when your connection is not.',
-        AppTheme.mint,
+        AppPalette.of(context).mint,
       ),
       SettingsPage.recommendations => (
         Icons.auto_awesome_outlined,
         'You decide which signals can influence your music discovery.',
-        AppTheme.lilac,
+        AppPalette.of(context).lilac,
       ),
       SettingsPage.notifications => (
         Icons.notifications_none_rounded,
         'Stay informed without letting the app become noisy.',
-        AppTheme.peach,
+        AppPalette.of(context).peach,
       ),
       SettingsPage.privacy => (
         Icons.shield_outlined,
         'Your activity controls affect what the server stores immediately.',
-        AppTheme.blue,
+        AppPalette.of(context).blue,
       ),
       SettingsPage.storage => (
         Icons.storage_outlined,
         'See what Music Hub keeps on this device.',
-        AppTheme.mint,
+        AppPalette.of(context).mint,
       ),
     };
     return Container(
@@ -686,7 +686,7 @@ class _Group extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: AppTheme.surface,
+      color: AppPalette.of(context).panel,
       borderRadius: BorderRadius.circular(28),
     ),
     clipBehavior: Clip.antiAlias,
@@ -711,7 +711,10 @@ class _SwitchSetting extends StatelessWidget {
     title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
     subtitle: subtitle == null
         ? null
-        : Text(subtitle!, style: const TextStyle(color: AppTheme.muted)),
+        : Text(
+            subtitle!,
+            style: TextStyle(color: AppPalette.of(context).muted),
+          ),
     value: value,
     onChanged: onChanged,
   );
@@ -777,7 +780,7 @@ class _SliderSetting extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            Text(label, style: const TextStyle(color: AppTheme.muted)),
+            Text(label, style: TextStyle(color: AppPalette.of(context).muted)),
           ],
         ),
         Slider(
@@ -799,8 +802,8 @@ class _ActionSetting extends StatelessWidget {
   Widget build(BuildContext context) => ListTile(
     title: Text(
       title,
-      style: const TextStyle(
-        color: Color(0xFFB3261E),
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.error,
         fontWeight: FontWeight.w700,
       ),
     ),

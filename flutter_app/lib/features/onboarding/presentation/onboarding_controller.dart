@@ -7,7 +7,10 @@ import 'package:music_hub_app/features/onboarding/data/onboarding_repository.dar
 import 'package:music_hub_app/shared/models/music_item.dart';
 
 final onboardingRepositoryProvider = Provider<OnboardingRepository>((ref) {
-  return OnboardingRepository(ref.watch(apiClientProvider));
+  return OnboardingRepository(
+    ref.watch(apiClientProvider),
+    ref.watch(localStoreProvider),
+  );
 });
 
 final availableLanguagesProvider = FutureProvider<List<String>>((ref) {
