@@ -66,6 +66,28 @@ class SongIdentity(BaseModel):
         return sha256("\x1f".join(values).casefold().encode("utf-8")).hexdigest()
 
 
+class LyricsRequestHint(BaseModel):
+    """Metadata the client already holds for the track it just selected.
+
+    The player knows the title, artist, album and duration the moment a song is
+    tapped. Passing them in lets the lookup start immediately instead of
+    waiting on a catalogue round-trip, which is what keeps lyrics ready before
+    the lyrics screen is opened.
+    """
+
+    model_config = ConfigDict(extra="ignore", frozen=True)
+
+    title: str | None = None
+    artist: str | None = None
+    album: str | None = None
+    duration_seconds: int | None = Field(default=None, ge=1, le=3600)
+
+    @property
+    def sufficient(self) -> bool:
+        """Whether the hint alone can identify the recording to a provider."""
+        return bool((self.title or "").strip() and (self.artist or "").strip())
+
+
 class ProviderLyricsCandidate(BaseModel):
     model_config = ConfigDict(extra="ignore")
 

@@ -37,7 +37,7 @@ class Container:
     cache: RedisCache
     firebase: FirebaseVerifier
     provider: MusicProvider
-    lyrics_provider: LyricsProvider
+    lyrics_providers: list[LyricsProvider]
     users_repository: UserRepository
     preferences_repository: PreferenceRepository
     history_repository: HistoryRepository

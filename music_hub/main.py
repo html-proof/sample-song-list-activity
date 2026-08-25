@@ -20,7 +20,13 @@ from music_hub.errors import (
 )
 from music_hub.middleware import RedisRateLimitMiddleware
 from music_hub.providers.gaana import GaanaProvider
-from music_hub.providers.lyrics import LicensedHttpLyricsProvider, UnsupportedLyricsProvider
+from music_hub.providers.lyrics import (
+    LicensedHttpLyricsProvider,
+    LrclibLyricsProvider,
+    LyricsOvhProvider,
+    LyricsProvider,
+    UnsupportedLyricsProvider,
+)
 from music_hub.lyrics.matcher import LyricsMatcher
 from music_hub.recommendations.candidate_generator import CandidateGenerator
 from music_hub.recommendations.cursor import InvalidCursor
@@ -49,6 +55,41 @@ from music_hub.services.users import UserService
 
 
 logger = logging.getLogger("music_hub")
+
+
+def _build_lyrics_providers(settings: Settings) -> list[LyricsProvider]:
+    """Return the lyrics providers in the order they should be consulted.
+
+    Sources that expose their own catalogue metadata come first, because only
+    those can be scored against the requested recording. The unverifiable
+    plain-text fallback goes last and never produces synchronised lyrics.
+    """
+    providers: list[LyricsProvider] = []
+    if settings.lrclib_enabled:
+        providers.append(
+            LrclibLyricsProvider(
+                settings.lrclib_base_url,
+                settings.lyrics_user_agent,
+                settings.lyrics_request_timeout_seconds,
+            )
+        )
+    if settings.lyrics_api_base_url and settings.lyrics_api_token:
+        providers.append(
+            LicensedHttpLyricsProvider(
+                settings.lyrics_api_base_url,
+                settings.lyrics_api_token.get_secret_value(),
+                settings.lyrics_request_timeout_seconds,
+            )
+        )
+    if settings.lyrics_ovh_enabled:
+        providers.append(
+            LyricsOvhProvider(
+                settings.lyrics_ovh_base_url,
+                settings.lyrics_request_timeout_seconds,
+                settings.lyrics_user_agent,
+            )
+        )
+    return providers or [UnsupportedLyricsProvider()]
 
 
 async def build_container(settings: Settings) -> Container:
@@ -81,15 +122,7 @@ async def build_container(settings: Settings) -> Container:
         await cache.close()
 
     provider = GaanaProvider()
-    lyrics_provider = (
-        LicensedHttpLyricsProvider(
-            settings.lyrics_api_base_url,
-            settings.lyrics_api_token.get_secret_value(),
-            settings.lyrics_request_timeout_seconds,
-        )
-        if settings.lyrics_api_base_url and settings.lyrics_api_token
-        else UnsupportedLyricsProvider()
-    )
+    lyrics_providers = _build_lyrics_providers(settings)
     firebase = FirebaseVerifier(settings)
     try:
         mode = await firebase.warm()
@@ -130,7 +163,7 @@ async def build_container(settings: Settings) -> Container:
     music = MusicService(provider, cache, settings)
     lyrics = LyricsService(
         provider,
-        lyrics_provider,
+        lyrics_providers,
         LyricsCache(cache, settings.lyrics_cache_ttl, settings.lyrics_negative_cache_ttl),
         LyricsMatcher(settings.lyrics_match_confidence),
     )
@@ -152,7 +185,7 @@ async def build_container(settings: Settings) -> Container:
         cache=cache,
         firebase=firebase,
         provider=provider,
-        lyrics_provider=lyrics_provider,
+        lyrics_providers=lyrics_providers,
         users_repository=users_repository,
         preferences_repository=preferences_repository,
         history_repository=history_repository,
@@ -187,7 +220,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             yield
         finally:
             await container.provider.close()
-            await container.lyrics_provider.close()
+            for lyrics_provider in container.lyrics_providers:
+                await lyrics_provider.close()
             await container.cache.close()
             await container.database.close()
 

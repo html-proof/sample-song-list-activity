@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     lyrics_cache_ttl: int = 604800
     lyrics_negative_cache_ttl: int = 3600
 
+    # LRCLIB is the primary source: free, key-less, and the only one of the
+    # three that returns timestamped lyrics.
+    lrclib_enabled: bool = True
+    lrclib_base_url: str = "https://lrclib.net/api"
+    # LRCLIB asks clients to identify themselves. Point the contact at
+    # something reachable before running this in production.
+    lyrics_user_agent: str = "MusicHub/1.0 (https://github.com/music-hub)"
+    # Plain-text last resort. Off by default: it cannot be verified against the
+    # requested recording, so it is opt-in per deployment.
+    lyrics_ovh_enabled: bool = False
+    lyrics_ovh_base_url: str = "https://api.lyrics.ovh/v1"
+
     firebase_project_id: str | None = None
     firebase_credentials_path: Path | None = None
     firebase_credentials_json: SecretStr | None = None
@@ -104,6 +116,13 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_lyrics_api_base_url(cls, value):
         return normalize_http_url(value)
+
+    @field_validator("lrclib_base_url", "lyrics_ovh_base_url", mode="before")
+    @classmethod
+    def normalize_free_lyrics_base_url(cls, value, info):
+        # An empty override in a deployment dashboard must not blank the
+        # endpoint; fall back to the documented default instead.
+        return normalize_http_url(value) or cls.model_fields[info.field_name].default
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":

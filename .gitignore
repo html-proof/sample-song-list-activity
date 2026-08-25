@@ -10,3 +10,4 @@ node_modules/
 cloudflare-cdn/dist/
 cloudflare-cdn/worker-configuration.d.ts
 *.cpuprofile
+flutter_app/
