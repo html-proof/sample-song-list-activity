@@ -84,7 +84,7 @@ class MiniPlayer extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: PlayerPalette.onSurface,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -93,7 +93,7 @@ class MiniPlayer extends ConsumerWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Colors.white60,
+                              color: PlayerPalette.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -130,7 +130,7 @@ class MiniPlayer extends ConsumerWidget {
                     ),
                     IconButton(
                       tooltip: 'Next',
-                      color: Colors.white70,
+                      color: PlayerPalette.onSurfaceVariant,
                       onPressed: ref.read(audioHandlerProvider).skipToNext,
                       icon: const Icon(Icons.skip_next_rounded),
                     ),
@@ -142,7 +142,9 @@ class MiniPlayer extends ConsumerWidget {
                 value: progress,
                 minHeight: 2,
                 color: palette.primary,
-                backgroundColor: Colors.white12,
+                backgroundColor: PlayerPalette.onSurfaceFaint.withValues(
+                  alpha: 0.28,
+                ),
               ),
             ],
           ),

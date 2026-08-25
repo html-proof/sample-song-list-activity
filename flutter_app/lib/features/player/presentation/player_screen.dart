@@ -54,7 +54,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         body: const Center(
           child: Text(
             'Choose a song to start listening',
-            style: TextStyle(color: Colors.white70),
+            style: TextStyle(color: PlayerPalette.onSurfaceVariant),
           ),
         ),
       );
@@ -81,7 +81,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
         ),
         sliderTheme: SliderThemeData(
           activeTrackColor: palette.primary,
-          inactiveTrackColor: Colors.white24,
+          inactiveTrackColor: PlayerPalette.onSurfaceFaint,
           thumbColor: palette.primary,
           overlayColor: palette.primary.withValues(alpha: 0.16),
           trackHeight: 3,
@@ -136,7 +136,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             textAlign: TextAlign.center,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: PlayerPalette.onSurface,
                               fontSize: 27,
                               height: 1.05,
                               fontWeight: FontWeight.w800,
@@ -152,7 +152,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Colors.white60,
+                              color: PlayerPalette.onSurfaceVariant,
                               fontSize: 14,
                             ),
                           ),
@@ -182,7 +182,9 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen>
                           Text(
                             'Swipe sideways to skip · swipe up for queue',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.34),
+                              color: PlayerPalette.onSurfaceVariant.withValues(
+                                alpha: 0.62,
+                              ),
                               fontSize: 11,
                             ),
                           ),
@@ -243,6 +245,14 @@ class _SeekBarState extends State<_SeekBar> {
   Duration? _preview;
 
   @override
+  void didUpdateWidget(covariant _SeekBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.duration != widget.duration) {
+      _preview = null;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final duration = widget.duration;
     final durationMs = duration?.inMilliseconds ?? 0;
@@ -263,8 +273,10 @@ class _SeekBarState extends State<_SeekBar> {
               child: LinearProgressIndicator(
                 value: bufferedFraction,
                 minHeight: 3,
-                color: Colors.white30,
-                backgroundColor: Colors.white12,
+                color: PlayerPalette.onSurfaceFaint,
+                backgroundColor: PlayerPalette.onSurfaceFaint.withValues(
+                  alpha: 0.28,
+                ),
               ),
             ),
             Slider(
@@ -323,7 +335,7 @@ class _PlayerHeader extends StatelessWidget {
             Text(
               'NOW PLAYING',
               style: TextStyle(
-                color: Colors.white54,
+                color: PlayerPalette.onSurfaceVariant,
                 fontSize: 10,
                 letterSpacing: 2.1,
                 fontWeight: FontWeight.w700,
@@ -333,7 +345,7 @@ class _PlayerHeader extends StatelessWidget {
             Text(
               'Resonance',
               style: TextStyle(
-                color: Colors.white,
+                color: PlayerPalette.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -421,7 +433,7 @@ class _TransportControls extends ConsumerWidget {
           tooltip: 'Shuffle',
           color: playback?.shuffleMode == AudioServiceShuffleMode.all
               ? palette.primary
-              : Colors.white54,
+              : PlayerPalette.onSurfaceVariant,
           onPressed: () => ref
               .read(audioHandlerProvider)
               .setShuffle(playback?.shuffleMode != AudioServiceShuffleMode.all),
@@ -471,7 +483,7 @@ class _TransportControls extends ConsumerWidget {
           tooltip: 'Repeat',
           color: playback?.repeatMode != AudioServiceRepeatMode.none
               ? palette.primary
-              : Colors.white54,
+              : PlayerPalette.onSurfaceVariant,
           onPressed: ref.read(audioHandlerProvider).cycleRepeat,
           icon: Icon(
             playback?.repeatMode == AudioServiceRepeatMode.one
@@ -499,9 +511,11 @@ class _SecondaryActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
     decoration: BoxDecoration(
-      color: Colors.black.withValues(alpha: 0.17),
+      color: const Color(0xFF000000).withValues(alpha: 0.17),
       borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: Colors.white10),
+      border: Border.all(
+        color: PlayerPalette.onSurfaceFaint.withValues(alpha: 0.24),
+      ),
     ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -584,12 +598,18 @@ class _SmallAction extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       child: Column(
         children: [
-          Icon(icon, size: 21, color: onTap == null ? Colors.white24 : null),
+          Icon(
+            icon,
+            size: 21,
+            color: onTap == null ? PlayerPalette.onSurfaceFaint : null,
+          ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              color: onTap == null ? Colors.white24 : Colors.white54,
+              color: onTap == null
+                  ? PlayerPalette.onSurfaceFaint
+                  : PlayerPalette.onSurfaceVariant,
               fontSize: 9,
             ),
           ),
@@ -689,7 +709,10 @@ class _PlayerQueue extends ConsumerWidget {
                       ),
                       Text(
                         'Hold and drag to reorder',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                        style: TextStyle(
+                          color: PlayerPalette.onSurfaceVariant,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -711,7 +734,9 @@ class _PlayerQueue extends ConsumerWidget {
                       return ListTile(
                         key: ValueKey('${item.id}-$index'),
                         selected: current,
-                        selectedTileColor: Colors.white.withValues(alpha: 0.07),
+                        selectedTileColor: PlayerPalette.onSurface.withValues(
+                          alpha: 0.07,
+                        ),
                         leading: Stack(
                           children: [
                             Artwork(url: item.artUri?.toString(), size: 48),
@@ -733,7 +758,9 @@ class _PlayerQueue extends ConsumerWidget {
                           current ? 'PLAYING' : item.artist ?? '',
                           maxLines: 1,
                           style: TextStyle(
-                            color: current ? null : Colors.white54,
+                            color: current
+                                ? null
+                                : PlayerPalette.onSurfaceVariant,
                             fontSize: current ? 10 : 12,
                             letterSpacing: current ? 1.4 : 0,
                           ),

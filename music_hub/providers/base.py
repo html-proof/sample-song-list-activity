@@ -32,6 +32,9 @@ class MusicProvider(ABC):
     async def get_similar_artists(self, artist_id: str, limit: int = 10) -> list[dict]: ...
 
     @abstractmethod
+    async def suggested_artists(self, languages: list[str], limit: int = 20) -> list[dict]: ...
+
+    @abstractmethod
     async def get_similar_albums(self, album_id: str, limit: int = 10) -> list[dict]: ...
 
     @abstractmethod

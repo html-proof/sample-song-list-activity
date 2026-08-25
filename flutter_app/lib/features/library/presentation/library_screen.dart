@@ -19,7 +19,7 @@ class LibraryScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 78,
-          title: const Column(
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -34,7 +34,7 @@ class LibraryScreen extends ConsumerWidget {
                 'Your saved soundtracks',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppTheme.muted,
+                  color: context.secondaryText,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -44,19 +44,19 @@ class LibraryScreen extends ConsumerWidget {
             IconButton(
               onPressed: () => _createPlaylist(context, ref),
               style: IconButton.styleFrom(
-                backgroundColor: AppTheme.ink,
-                foregroundColor: Colors.white,
+                backgroundColor: context.colors.primary,
+                foregroundColor: context.colors.onPrimary,
               ),
               icon: const Icon(Icons.add_rounded),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             dividerColor: Colors.transparent,
-            indicatorColor: AppTheme.ink,
-            labelColor: AppTheme.ink,
-            unselectedLabelColor: AppTheme.muted,
+            indicatorColor: context.primaryText,
+            labelColor: context.primaryText,
+            unselectedLabelColor: context.secondaryText,
             labelStyle: TextStyle(fontWeight: FontWeight.w800),
             tabs: [
               Tab(text: 'Songs'),
@@ -145,16 +145,16 @@ class _SavedSongs extends ConsumerWidget {
       children: [
         _LibraryHeading(
           icon: Icons.favorite_rounded,
-          color: AppTheme.peach,
+          color: context.accents.peach,
           title: 'Liked songs',
           count: liked.length,
         ),
         if (liked.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 8, 20, 18),
             child: Text(
               'Songs you like will appear here.',
-              style: TextStyle(color: AppTheme.muted),
+              style: TextStyle(color: context.secondaryText),
             ),
           )
         else
@@ -174,7 +174,7 @@ class _SavedSongs extends ConsumerWidget {
           const SizedBox(height: 18),
           _LibraryHeading(
             icon: Icons.history_rounded,
-            color: AppTheme.blue,
+            color: context.accents.blue,
             title: 'Recently played',
             count: recent.length,
           ),
@@ -229,7 +229,7 @@ class _LibraryHeading extends StatelessWidget {
         ),
         Text(
           '$count tracks',
-          style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+          style: TextStyle(color: context.secondaryText, fontSize: 12),
         ),
       ],
     ),
@@ -286,11 +286,11 @@ class _Playlists extends StatelessWidget {
     if (playlists.isEmpty) {
       return const _Empty(label: 'Create your first playlist');
     }
-    const colors = [
-      AppTheme.peach,
-      AppTheme.blue,
-      AppTheme.lilac,
-      AppTheme.mint,
+    final colors = [
+      context.accents.peach,
+      context.accents.blue,
+      context.accents.lilac,
+      context.accents.mint,
     ];
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 130),
@@ -316,7 +316,7 @@ class _Playlists extends StatelessWidget {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.68),
+                    color: context.colors.surface.withValues(alpha: 0.68),
                     borderRadius: BorderRadius.circular(22),
                   ),
                   child: const Icon(Icons.graphic_eq_rounded, size: 48),
@@ -338,7 +338,7 @@ class _Playlists extends StatelessWidget {
               ),
               Text(
                 '${playlist['track_count'] ?? 0} tracks',
-                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                style: TextStyle(color: context.secondaryText, fontSize: 12),
               ),
             ],
           ),
@@ -360,14 +360,14 @@ class _Empty extends StatelessWidget {
         Container(
           width: 84,
           height: 84,
-          decoration: const BoxDecoration(
-            color: AppTheme.surfaceHigh,
+          decoration: BoxDecoration(
+            color: context.accents.raised,
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.library_music_outlined, size: 38),
         ),
         const SizedBox(height: 14),
-        Text(label, style: const TextStyle(color: AppTheme.muted)),
+        Text(label, style: TextStyle(color: context.secondaryText)),
       ],
     ),
   );

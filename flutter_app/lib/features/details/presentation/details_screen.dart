@@ -29,6 +29,29 @@ final albumDetailsProvider = FutureProvider.family<MusicDetails, String>((
   return ref.watch(detailsRepositoryProvider).album(key);
 });
 
+final playlistDetailsProvider = FutureProvider.family<MusicDetails, String>((
+  ref,
+  key,
+) {
+  return ref.watch(detailsRepositoryProvider).playlist(key);
+});
+
+class PlaylistScreen extends ConsumerWidget {
+  const PlaylistScreen({super.key, required this.seokey});
+
+  final String seokey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return _DetailsScaffold(
+      value: ref.watch(playlistDetailsProvider(seokey)),
+      source: 'playlist',
+      isArtist: false,
+      retry: () => ref.invalidate(playlistDetailsProvider(seokey)),
+    );
+  }
+}
+
 class ArtistScreen extends ConsumerWidget {
   const ArtistScreen({super.key, required this.seokey});
 
@@ -112,7 +135,9 @@ class _DetailsScaffold extends ConsumerWidget {
                 background: Container(
                   margin: const EdgeInsets.fromLTRB(12, 58, 12, 8),
                   decoration: BoxDecoration(
-                    color: isArtist ? AppTheme.blue : AppTheme.peach,
+                    color: isArtist
+                        ? context.accents.blue
+                        : context.accents.peach,
                     borderRadius: BorderRadius.circular(36),
                   ),
                   child: Center(
@@ -144,7 +169,7 @@ class _DetailsScaffold extends ConsumerWidget {
                       details.item.subtitle ??
                           (isArtist ? 'Artist profile' : 'Album'),
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppTheme.muted),
+                      style: TextStyle(color: context.secondaryText),
                     ),
                     const SizedBox(height: 18),
                     Row(
@@ -288,7 +313,11 @@ class _DetailsScaffold extends ConsumerWidget {
                 ),
               ),
             ],
-            const SliverToBoxAdapter(child: SizedBox(height: 48)),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 48 + MediaQuery.paddingOf(context).bottom,
+              ),
+            ),
           ],
         ),
       ),

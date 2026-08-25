@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -8,6 +10,7 @@ import 'package:music_hub_app/core/api/api_client.dart';
 import 'package:music_hub_app/core/api/event_tracker.dart';
 import 'package:music_hub_app/core/audio/music_audio_handler.dart';
 import 'package:music_hub_app/core/audio/playback_source_resolver.dart';
+import 'package:music_hub_app/core/notifications/notification_permission.dart';
 import 'package:music_hub_app/core/providers.dart';
 import 'package:music_hub_app/core/storage/local_store.dart';
 import 'package:music_hub_app/firebase_options.dart';
@@ -35,10 +38,29 @@ Future<void> bootstrap() async {
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.musichub.app.playback',
         androidNotificationChannelName: 'Music playback',
-        androidNotificationOngoing: true,
+        androidNotificationChannelDescription: 'Music playback controls',
+        androidNotificationClickStartsActivity: true,
+        // Keep the media service in the foreground while paused. With the
+        // default (true) Android is free to kill the service on pause, which
+        // takes the notification and lock-screen controls with it. A foreground
+        // service already forces an ongoing notification, which is why
+        // androidNotificationOngoing must stay false here (the package asserts
+        // on the combination).
+        androidStopForegroundOnPause: false,
+        // Load artwork as soon as items enter the queue, so a track change
+        // does not briefly show the previous song's image.
+        preloadArtwork: true,
       ),
     ).timeout(const Duration(seconds: 15));
     await handler.initialize().timeout(const Duration(seconds: 15));
+    // Best-effort and deliberately not awaited: the permission dialog needs a
+    // running UI, and playback must never wait on it.
+    unawaited(
+      Future<void>.delayed(
+        const Duration(milliseconds: 800),
+        () => const NotificationPermission().ensure(),
+      ),
+    );
     runApp(
       ProviderScope(
         overrides: [

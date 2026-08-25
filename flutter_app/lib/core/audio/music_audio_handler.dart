@@ -8,6 +8,7 @@ import 'package:music_hub_app/core/audio/media_item_mapper.dart';
 import 'package:music_hub_app/core/audio/playback_analytics.dart';
 import 'package:music_hub_app/core/audio/playback_progress.dart';
 import 'package:music_hub_app/core/audio/playback_queue_policy.dart';
+import 'package:music_hub_app/core/audio/playback_snapshot.dart';
 import 'package:music_hub_app/core/audio/playback_source_resolver.dart';
 import 'package:music_hub_app/core/audio/playback_state_machine.dart';
 import 'package:music_hub_app/core/storage/local_store.dart';
@@ -35,8 +36,12 @@ class MusicAudioHandler extends BaseAudioHandler
     _player.playerStateStream.listen(_handlePlayerState);
   }
 
-  static const _previousRestartThreshold = Duration(seconds: 4);
+  static const _previousRestartThreshold = Duration(seconds: 3);
   static const _maxConsecutiveFailedTracks = 3;
+
+  /// How often the snapshot is refreshed while audio is running. Short enough
+  /// that a process kill loses only a few seconds of position.
+  static const _snapshotInterval = Duration(seconds: 4);
 
   final LocalStore _store;
   final PlaybackSourceResolver _sourceResolver;
@@ -58,6 +63,7 @@ class MusicAudioHandler extends BaseAudioHandler
   Future<void> _mutationTail = Future<void>.value();
   Timer? _persistenceDebounce;
   Timer? _progressDebounce;
+  Timer? _snapshotTicker;
   Stopwatch? _listenStopwatch;
   Duration _lastActivePosition = Duration.zero;
   int _accumulatedListenMs = 0;
@@ -86,6 +92,13 @@ class MusicAudioHandler extends BaseAudioHandler
   Future<void> initialize() async {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.music());
+    // Unplugging headphones or dropping a Bluetooth link must pause at once,
+    // rather than letting the track continue out of the phone speaker.
+    // The handler lives for the whole process, so this subscription is never
+    // cancelled by design.
+    session.becomingNoisyEventStream.listen((_) {
+      if (_desiredPlaying) unawaited(pause());
+    });
     final saved = _store.readQueue();
     final items = saved?['items'];
     if (items is! List) return;
@@ -115,12 +128,47 @@ class MusicAudioHandler extends BaseAudioHandler
       await _player.shuffle();
       await _player.setShuffleModeEnabled(true);
     }
-    final positionMs = int.tryParse(saved?['position_ms']?.toString() ?? '');
-    if (positionMs != null && positionMs > 0 && _musicQueue.isNotEmpty) {
-      await seek(Duration(milliseconds: positionMs));
-    }
+    await _restoreSnapshot(saved, restored.length);
     _broadcastState(_player.playbackEvent);
     _scheduleProgress(force: true);
+  }
+
+  /// Puts the session back exactly where it stopped.
+  ///
+  /// Runs entirely against local state: no metadata, home or recommendation
+  /// call is allowed to delay the user hearing their song again.
+  Future<void> _restoreSnapshot(
+    Map<String, dynamic>? savedQueue,
+    int queueLength,
+  ) async {
+    final snapshot = PlaybackSnapshot.fromJson(_store.readSnapshot());
+    if (snapshot == null) {
+      // Older builds only stored the queue; keep honouring that format.
+      final positionMs = int.tryParse(
+        savedQueue?['position_ms']?.toString() ?? '',
+      );
+      if (positionMs != null && positionMs > 0 && _musicQueue.isNotEmpty) {
+        await seek(Duration(milliseconds: positionMs));
+      }
+      return;
+    }
+
+    if (snapshot.wasEffectivelyComplete) {
+      // The track had all but finished, so resuming its last moment would just
+      // replay a fade-out. Start the following song from the top instead.
+      final next = snapshot.queueIndex + 1;
+      if (next < queueLength) {
+        await _selectIndexLatest(next);
+      } else {
+        await seek(Duration.zero);
+      }
+    } else if (snapshot.position > Duration.zero) {
+      await seek(snapshot.position);
+    }
+
+    if (snapshot.wasPlaying) {
+      await play();
+    }
   }
 
   Future<void> playItems(
@@ -173,9 +221,20 @@ class MusicAudioHandler extends BaseAudioHandler
     }
     requestedIndex = requestedIndex.clamp(0, prepared.length - 1);
 
-    // Show the selected metadata immediately. Older async loads are rejected
-    // by the generation checks before they can replace the actual player.
-    mediaItem.add(_toMediaItem(prepared[requestedIndex]));
+    // Show the selected metadata and reset progress immediately.
+    // Older async loads are rejected by the generation checks before they can replace the actual player.
+    final requestedTarget = prepared[requestedIndex];
+    _requestedQueueIndex = requestedIndex;
+    _progressIndex = requestedIndex;
+    _allowProgressRegression = true;
+    _progressDebounce?.cancel();
+    _lastProgress = PlaybackProgress(
+      position: Duration.zero,
+      buffered: Duration.zero,
+      duration: requestedTarget.duration,
+    );
+    _progressController.add(_lastProgress);
+    mediaItem.add(_toMediaItem(requestedTarget));
     _broadcastIntent();
 
     final quality = await _streamingQuality();
@@ -223,16 +282,25 @@ class MusicAudioHandler extends BaseAudioHandler
       mediaItem.add(mediaItems[safeIndex]);
       if (persist) await _persistQueue();
       if (_desiredPlaying) _startPlayer();
+      _restartSnapshotTicker();
     });
   }
 
   @override
   Future<void> play() async {
-    if (_desiredPlaying) return;
+    if (_player.processingState == ProcessingState.completed) {
+      await _player.seek(Duration.zero, index: _player.currentIndex ?? 0);
+    }
+    // Only intent *and* a player that is actually running means there is
+    // nothing to do. Checking the intent alone swallowed the request whenever
+    // something outside the app had paused us while the intent was still true.
+    if (_desiredPlaying && _player.playing) return;
     _desiredPlaying = true;
     _transition(PlaybackSignal.playRequested);
     _broadcastIntent();
     _startPlayer();
+    _saveNow();
+    _restartSnapshotTicker();
   }
 
   void _startPlayer() {
@@ -254,6 +322,7 @@ class MusicAudioHandler extends BaseAudioHandler
     _broadcastIntent();
     await _player.pause();
     await _persistQueue();
+    _restartSnapshotTicker();
   }
 
   @override
@@ -265,16 +334,21 @@ class MusicAudioHandler extends BaseAudioHandler
     _transition(PlaybackSignal.stopped);
     await _player.stop();
     await _persistQueue();
+    _snapshotTicker?.cancel();
     await super.stop();
   }
 
   Future<void> clearQueue() async {
     _persistenceDebounce?.cancel();
+    _progressDebounce?.cancel();
     _musicQueue = const [];
     _resolvedQueue = const [];
+    _lastProgress = const PlaybackProgress.zero();
+    _progressController.add(_lastProgress);
     queue.add(const []);
     mediaItem.add(null);
     await _store.saveQueue(const [], 0, positionMs: 0);
+    await _store.clearSnapshot();
     await stop();
   }
 
@@ -297,7 +371,21 @@ class MusicAudioHandler extends BaseAudioHandler
       await _player.seek(previous);
     } finally {
       _scheduleProgress(force: true);
+      _saveNow();
     }
+  }
+
+  @override
+  Future<void> fastForward([Duration time = const Duration(seconds: 10)]) async {
+    final current = _player.position;
+    await seek(current + time);
+  }
+
+  @override
+  Future<void> rewind([Duration time = const Duration(seconds: 10)]) async {
+    final current = _player.position;
+    final target = current - time;
+    await seek(target < Duration.zero ? Duration.zero : target);
   }
 
   @override
@@ -305,7 +393,18 @@ class MusicAudioHandler extends BaseAudioHandler
     if (_musicQueue.isEmpty) return;
     final base = _requestedQueueIndex ?? _player.currentIndex ?? 0;
     final target = base + 1;
-    if (target >= _musicQueue.length) return;
+    if (target >= _musicQueue.length) {
+      if (_player.loopMode == LoopMode.all && _musicQueue.length > 1) {
+        _trackCurrent(
+          'user_pressed_next',
+          metadata: {'reason': 'next_control'},
+        );
+        _finishCurrentListen(completed: false);
+        await _selectIndexLatest(0);
+        return;
+      }
+      return;
+    }
     _trackCurrent('user_pressed_next', metadata: {'reason': 'next_control'});
     _finishCurrentListen(completed: false);
     await _selectIndexLatest(target);
@@ -324,6 +423,15 @@ class MusicAudioHandler extends BaseAudioHandler
     final base = _requestedQueueIndex ?? _player.currentIndex ?? 0;
     final target = base - 1;
     if (target < 0) {
+      if (_player.loopMode == LoopMode.all && _musicQueue.length > 1) {
+        _trackCurrent(
+          'user_pressed_previous',
+          metadata: {'action': 'previous_track'},
+        );
+        _finishCurrentListen(completed: false);
+        await _selectIndexLatest(_musicQueue.length - 1);
+        return;
+      }
       await seek(Duration.zero);
       return;
     }
@@ -348,7 +456,21 @@ class MusicAudioHandler extends BaseAudioHandler
   Future<void> _selectIndexLatest(int index) async {
     final generation = ++_selectionGeneration;
     _requestedQueueIndex = index;
-    mediaItem.add(_toMediaItem(_musicQueue[index]));
+    _progressIndex = index;
+    _allowProgressRegression = true;
+    _progressDebounce?.cancel();
+    final targetItem = (index >= 0 && index < _musicQueue.length)
+        ? _musicQueue[index]
+        : null;
+    _lastProgress = PlaybackProgress(
+      position: Duration.zero,
+      buffered: Duration.zero,
+      duration: targetItem?.duration,
+    );
+    _progressController.add(_lastProgress);
+    if (targetItem != null) {
+      mediaItem.add(_toMediaItem(targetItem));
+    }
     _transition(PlaybackSignal.loadRequested, autoPlay: _desiredPlaying);
     _broadcastIntent();
     await _serialize(() async {
@@ -443,59 +565,68 @@ class MusicAudioHandler extends BaseAudioHandler
     });
   }
 
-  Future<void> setShuffle(bool enabled) async {
+  @override
+  Future<void> setRepeatMode(AudioServiceRepeatMode repeatMode) async {
     await _serialize(() async {
-      if (enabled) await _player.shuffle();
-      await _player.setShuffleModeEnabled(enabled);
+      final mode = switch (repeatMode) {
+        AudioServiceRepeatMode.none => LoopMode.off,
+        AudioServiceRepeatMode.one => LoopMode.one,
+        AudioServiceRepeatMode.all ||
+        AudioServiceRepeatMode.group => LoopMode.all,
+      };
+      await _player.setLoopMode(mode);
       playbackState.add(
         playbackState.value.copyWith(
-          shuffleMode: enabled
-              ? AudioServiceShuffleMode.all
-              : AudioServiceShuffleMode.none,
+          repeatMode: repeatMode,
         ),
       );
       await _persistQueue();
     });
   }
 
+  @override
+  Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
+    await _serialize(() async {
+      final enabled = shuffleMode != AudioServiceShuffleMode.none;
+      if (enabled) {
+        await _player.shuffle();
+      }
+      await _player.setShuffleModeEnabled(enabled);
+      playbackState.add(
+        playbackState.value.copyWith(
+          shuffleMode: shuffleMode,
+        ),
+      );
+      await _persistQueue();
+    });
+  }
+
+  Future<void> setShuffle(bool enabled) => setShuffleMode(
+        enabled ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+      );
+
   Future<void> cycleRepeat() async {
     final next = switch (_player.loopMode) {
-      LoopMode.off => LoopMode.all,
-      LoopMode.all => LoopMode.one,
-      LoopMode.one => LoopMode.off,
+      LoopMode.off => AudioServiceRepeatMode.all,
+      LoopMode.all => AudioServiceRepeatMode.one,
+      LoopMode.one => AudioServiceRepeatMode.none,
     };
-    await _player.setLoopMode(next);
-    playbackState.add(
-      playbackState.value.copyWith(
-        repeatMode: switch (next) {
-          LoopMode.off => AudioServiceRepeatMode.none,
-          LoopMode.all => AudioServiceRepeatMode.all,
-          LoopMode.one => AudioServiceRepeatMode.one,
-        },
-      ),
-    );
-    await _persistQueue();
+    await setRepeatMode(next);
   }
 
   Future<void> applyPlaybackSettings(Map<String, dynamic> values) async {
     final repeat = values['repeat_mode']?.toString();
-    if (repeat == null) return;
-    final mode = switch (repeat) {
-      'all' => LoopMode.all,
-      'one' => LoopMode.one,
-      _ => LoopMode.off,
-    };
-    await _player.setLoopMode(mode);
-    playbackState.add(
-      playbackState.value.copyWith(
-        repeatMode: switch (mode) {
-          LoopMode.off => AudioServiceRepeatMode.none,
-          LoopMode.all => AudioServiceRepeatMode.all,
-          LoopMode.one => AudioServiceRepeatMode.one,
-        },
-      ),
-    );
-    await _persistQueue();
+    if (repeat != null) {
+      final mode = switch (repeat) {
+        'all' => AudioServiceRepeatMode.all,
+        'one' => AudioServiceRepeatMode.one,
+        _ => AudioServiceRepeatMode.none,
+      };
+      await setRepeatMode(mode);
+    }
+    if (values['shuffle'] is bool) {
+      await setShuffle(values['shuffle'] as bool);
+    }
   }
 
   void _handleIndexChanged(int? index) {
@@ -521,10 +652,23 @@ class MusicAudioHandler extends BaseAudioHandler
       _allowProgressRegression = true;
       _progressIndex = index;
       _lastActivePosition = Duration.zero;
+      _activeIndex = index;
+      _requestedQueueIndex = index;
+      _progressDebounce?.cancel();
+      final current = _musicQueue[index];
+      _lastProgress = PlaybackProgress(
+        position: Duration.zero,
+        buffered: Duration.zero,
+        duration: current.duration,
+      );
+      _progressController.add(_lastProgress);
+      mediaItem.add(_toMediaItem(current));
+      _broadcastIntent();
+    } else {
+      _activeIndex = index;
+      _requestedQueueIndex = index;
+      mediaItem.add(_toMediaItem(_musicQueue[index]));
     }
-    _activeIndex = index;
-    _requestedQueueIndex = index;
-    mediaItem.add(_toMediaItem(_musicQueue[index]));
     _scheduleProgress(force: true);
     unawaited(_persistQueue());
   }
@@ -539,8 +683,21 @@ class MusicAudioHandler extends BaseAudioHandler
         _transition(PlaybackSignal.bufferingStarted);
       case ProcessingState.ready:
         if (state.playing) {
+          // Adopt playback that started without us asking, which is how
+          // just_audio resumes after a transient interruption ends.
+          _desiredPlaying = true;
           _transition(PlaybackSignal.playbackStarted);
           _onActualPlaybackStart();
+          _broadcastState(_player.playbackEvent);
+        } else if (_machine.phase == PlaybackPhase.playing) {
+          // We were genuinely playing and nobody in the app asked to stop, so
+          // something outside did: audio focus loss, a call, headphones
+          // unplugged, Bluetooth disconnecting. Adopt it as the current intent
+          // so the controls tell the truth and the next Play actually resumes.
+          _desiredPlaying = false;
+          _finishCurrentListen(completed: false);
+          _transition(PlaybackSignal.pauseRequested);
+          _broadcastIntent();
         } else if (!_desiredPlaying) {
           _transition(PlaybackSignal.pauseRequested);
         }
@@ -572,6 +729,8 @@ class MusicAudioHandler extends BaseAudioHandler
     }
     _desiredPlaying = false;
     _transition(PlaybackSignal.completed);
+    _saveNow();
+    _restartSnapshotTicker();
   }
 
   Future<void> _recover(Object error) async {
@@ -666,6 +825,13 @@ class MusicAudioHandler extends BaseAudioHandler
 
   void _broadcastState(PlaybackEvent event) {
     final fatal = _machine.phase == PlaybackPhase.fatalError;
+    final isPlaying = _desiredPlaying && _player.playing;
+    final pos = _player.position;
+    final buf = _player.bufferedPosition;
+    final speed = _player.speed;
+    final idx =
+        event.currentIndex ?? _player.currentIndex ?? _requestedQueueIndex;
+
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
@@ -678,6 +844,8 @@ class MusicAudioHandler extends BaseAudioHandler
           MediaAction.seek,
           MediaAction.seekForward,
           MediaAction.seekBackward,
+          MediaAction.setRepeatMode,
+          MediaAction.setShuffleMode,
         },
         androidCompactActionIndices: const [0, 1, 2],
         processingState: fatal
@@ -689,11 +857,19 @@ class MusicAudioHandler extends BaseAudioHandler
                 ProcessingState.ready => AudioProcessingState.ready,
                 ProcessingState.completed => AudioProcessingState.completed,
               },
-        playing: _desiredPlaying && _player.playing,
-        updatePosition: _player.position,
-        bufferedPosition: _player.bufferedPosition,
-        speed: _player.speed,
-        queueIndex: event.currentIndex,
+        playing: isPlaying,
+        updatePosition: pos,
+        bufferedPosition: buf,
+        speed: speed,
+        queueIndex: idx,
+        repeatMode: switch (_player.loopMode) {
+          LoopMode.off => AudioServiceRepeatMode.none,
+          LoopMode.one => AudioServiceRepeatMode.one,
+          LoopMode.all => AudioServiceRepeatMode.all,
+        },
+        shuffleMode: _player.shuffleModeEnabled
+            ? AudioServiceShuffleMode.all
+            : AudioServiceShuffleMode.none,
         errorCode: fatal ? 1 : null,
         errorMessage: fatal ? _machine.message : null,
       ),
@@ -702,6 +878,13 @@ class MusicAudioHandler extends BaseAudioHandler
   }
 
   void _broadcastIntent() {
+    final isTrackSwitch = _requestedQueueIndex != null &&
+        _player.currentIndex != null &&
+        _requestedQueueIndex != _player.currentIndex;
+    final pos = isTrackSwitch ? Duration.zero : _player.position;
+    final buf = isTrackSwitch ? Duration.zero : _player.bufferedPosition;
+    final idx = _requestedQueueIndex ?? _player.currentIndex;
+
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
@@ -710,7 +893,27 @@ class MusicAudioHandler extends BaseAudioHandler
           MediaControl.skipToNext,
           MediaControl.stop,
         ],
+        systemActions: const {
+          MediaAction.seek,
+          MediaAction.seekForward,
+          MediaAction.seekBackward,
+          MediaAction.setRepeatMode,
+          MediaAction.setShuffleMode,
+        },
+        androidCompactActionIndices: const [0, 1, 2],
         playing: _desiredPlaying,
+        updatePosition: pos,
+        bufferedPosition: buf,
+        speed: _player.speed,
+        queueIndex: idx,
+        repeatMode: switch (_player.loopMode) {
+          LoopMode.off => AudioServiceRepeatMode.none,
+          LoopMode.one => AudioServiceRepeatMode.one,
+          LoopMode.all => AudioServiceRepeatMode.all,
+        },
+        shuffleMode: _player.shuffleModeEnabled
+            ? AudioServiceShuffleMode.all
+            : AudioServiceShuffleMode.none,
         processingState: switch (_machine.phase) {
           PlaybackPhase.loading => AudioProcessingState.loading,
           PlaybackPhase.buffering => AudioProcessingState.buffering,
@@ -754,8 +957,9 @@ class MusicAudioHandler extends BaseAudioHandler
   AudioSource _audioSource(ResolvedPlaybackSource source) =>
       AudioSource.uri(source.uri, tag: _toMediaItem(source.item));
 
-  Future<void> _persistQueue() {
-    return _store.saveQueue(
+  Future<void> _persistQueue() async {
+    await _persistSnapshot();
+    await _store.saveQueue(
       _musicQueue.map((item) => item.toJson()).toList(growable: false),
       _player.currentIndex ?? _requestedQueueIndex ?? 0,
       positionMs: _player.position.inMilliseconds,
@@ -766,6 +970,70 @@ class MusicAudioHandler extends BaseAudioHandler
         LoopMode.one => 'one',
       },
     );
+  }
+
+  /// Captures the live session. Cheap enough to call on every player event.
+  PlaybackSnapshot? _snapshot() {
+    if (_musicQueue.isEmpty) return null;
+    final index = (_player.currentIndex ?? _requestedQueueIndex ?? 0).clamp(
+      0,
+      _musicQueue.length - 1,
+    );
+    final item = _musicQueue[index];
+    final source = index < _resolvedQueue.length ? _resolvedQueue[index] : null;
+    final networkUri =
+        source?.kind == PlaybackSourceKind.localDownload ||
+            source?.kind == PlaybackSourceKind.localCache
+        ? null
+        : source?.uri;
+    return PlaybackSnapshot(
+      songId: item.id,
+      title: item.title,
+      artist: item.subtitle ?? '',
+      artworkUrl: item.imageUrl,
+      streamUrl: networkUri?.toString(),
+      streamUrlExpiresAt: _expiryOf(networkUri),
+      position: _player.position,
+      duration: _player.duration,
+      queueIndex: index,
+      queueSongIds: _musicQueue.map((item) => item.id).toList(growable: false),
+      wasPlaying: _desiredPlaying,
+      updatedAt: DateTime.now(),
+      cacheKey: item.id,
+    );
+  }
+
+  /// Provider stream URLs are signed with an `exp` unix timestamp. Reading it
+  /// lets a restore know whether the saved URL is still worth trying.
+  static DateTime? _expiryOf(Uri? uri) {
+    if (uri == null) return null;
+    final match = RegExp(r'exp=(\d+)').firstMatch(uri.query);
+    final seconds = int.tryParse(match?.group(1) ?? '');
+    return seconds == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+  }
+
+  /// Persists the snapshot immediately. Called on every event the user would
+  /// notice losing: play, pause, seek, track change, queue edits, completion.
+  Future<void> _persistSnapshot() async {
+    final snapshot = _snapshot();
+    if (snapshot == null) return;
+    try {
+      await _store.saveSnapshot(snapshot.toJson());
+    } catch (_) {
+      // Persistence is best-effort; never let storage failures stop playback.
+    }
+  }
+
+  void _saveNow() => unawaited(_persistSnapshot());
+
+  /// Keeps the snapshot fresh while audio runs, independent of the position
+  /// stream so a paused-but-loaded session is still recorded accurately.
+  void _restartSnapshotTicker() {
+    _snapshotTicker?.cancel();
+    if (!_desiredPlaying || _musicQueue.isEmpty) return;
+    _snapshotTicker = Timer.periodic(_snapshotInterval, (_) => _saveNow());
   }
 
   void _scheduleQueuePersistence() {
@@ -788,7 +1056,28 @@ class MusicAudioHandler extends BaseAudioHandler
   }
 
   void _emitProgress() {
-    final index = _player.currentIndex;
+    final activeTarget = _requestedQueueIndex;
+    final playerIndex = _player.currentIndex;
+
+    // If a track switch is currently in flight and the player hasn't transitioned yet,
+    // maintain zero position with target item duration rather than emitting old track's position.
+    if (activeTarget != null &&
+        playerIndex != null &&
+        activeTarget != playerIndex) {
+      final targetItem =
+          (activeTarget >= 0 && activeTarget < _musicQueue.length)
+              ? _musicQueue[activeTarget]
+              : null;
+      _lastProgress = PlaybackProgress(
+        position: Duration.zero,
+        buffered: Duration.zero,
+        duration: targetItem?.duration,
+      );
+      _progressController.add(_lastProgress);
+      return;
+    }
+
+    final index = playerIndex;
     var position = _player.position;
     if (_progressIndex == index &&
         !_allowProgressRegression &&
@@ -797,7 +1086,12 @@ class MusicAudioHandler extends BaseAudioHandler
     }
     _progressIndex = index;
     _allowProgressRegression = false;
-    final duration = _player.duration;
+
+    final currentItem =
+        (index != null && index >= 0 && index < _musicQueue.length)
+            ? _musicQueue[index]
+            : null;
+    final duration = _player.duration ?? currentItem?.duration;
     final boundedPosition = duration == null || position <= duration
         ? position
         : duration;

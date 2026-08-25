@@ -112,6 +112,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: '/playlist/:seokey',
+        builder: (_, state) =>
+            PlaylistScreen(seokey: state.pathParameters['seokey']!),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/settings',
         builder: (_, _) => const SettingsHubScreen(),
         routes: [

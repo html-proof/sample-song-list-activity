@@ -24,7 +24,7 @@ class Artwork extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
-        color: AppTheme.surfaceHigh,
+        color: context.accents.raised,
         child: url?.isNotEmpty == true
             ? CachedNetworkImage(
                 imageUrl: url!,
@@ -32,7 +32,7 @@ class Artwork extends StatelessWidget {
                 fadeInDuration: const Duration(milliseconds: 150),
                 errorWidget: (_, _, _) => const Icon(Icons.music_note_rounded),
               )
-            : const Icon(Icons.music_note_rounded, color: AppTheme.muted),
+            : Icon(Icons.music_note_rounded, color: context.secondaryText),
       ),
     );
   }

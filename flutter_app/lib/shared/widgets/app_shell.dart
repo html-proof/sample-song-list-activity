@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:music_hub_app/app/theme.dart';
 import 'package:music_hub_app/features/player/presentation/mini_player.dart';
 
 final connectivityProvider = StreamProvider<List<ConnectivityResult>>((ref) {
@@ -15,6 +16,7 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final safeInsets = MediaQuery.paddingOf(context);
     final results = ref.watch(connectivityProvider).value;
     final offline =
         results?.isNotEmpty == true &&
@@ -27,14 +29,15 @@ class AppShell extends ConsumerWidget {
               bottom: false,
               child: Container(
                 width: double.infinity,
-                color: Colors.orange.shade900,
+                color: context.accents.warning,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 7,
                 ),
-                child: const Text(
+                child: Text(
                   'Offline — showing saved content where available',
                   textAlign: TextAlign.center,
+                  style: TextStyle(color: context.accents.onWarning),
                 ),
               ),
             ),
@@ -43,9 +46,13 @@ class AppShell extends ConsumerWidget {
       ),
       bottomNavigationBar: ColoredBox(
         color: Theme.of(context).scaffoldBackgroundColor,
-        child: SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            10 + safeInsets.left,
+            0,
+            10 + safeInsets.right,
+            8 + safeInsets.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

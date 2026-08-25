@@ -63,16 +63,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 36),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          4,
+          16,
+          36 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           const _SectionTitle('Playback'),
           _SettingsGroup(
             children: [
               SwitchListTile(
                 title: const Text('Autoplay'),
-                subtitle: const Text(
+                subtitle: Text(
                   'Continue with recommendations when the queue ends',
-                  style: TextStyle(color: AppTheme.muted),
+                  style: TextStyle(color: context.secondaryText),
                 ),
                 value: _autoplay,
                 onChanged: (value) {
@@ -85,7 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 title: const Text('Streaming quality'),
                 subtitle: Text(
                   _quality.replaceAll('_', ' '),
-                  style: const TextStyle(color: AppTheme.muted),
+                  style: TextStyle(color: context.secondaryText),
                 ),
                 trailing: DropdownButton<String>(
                   value: _quality,
@@ -109,9 +114,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const Divider(height: 1, indent: 16, endIndent: 16),
               SwitchListTile(
                 title: const Text('Headphone reminder'),
-                subtitle: const Text(
+                subtitle: Text(
                   'Keep a reminder for private listening',
-                  style: TextStyle(color: AppTheme.muted),
+                  style: TextStyle(color: context.secondaryText),
                 ),
                 value: _headphoneReminder,
                 onChanged: (value) {
@@ -135,10 +140,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 },
               ),
               const Divider(height: 1, indent: 16, endIndent: 16),
-              const ListTile(
+              ListTile(
                 leading: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppTheme.mint,
+                    color: context.accents.mint,
                     shape: BoxShape.circle,
                   ),
                   child: Padding(
@@ -149,7 +154,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 title: Text('Private by default'),
                 subtitle: Text(
                   'Your playlists and listening profile stay private.',
-                  style: TextStyle(color: AppTheme.muted),
+                  style: TextStyle(color: context.secondaryText),
                 ),
               ),
             ],
@@ -169,7 +174,7 @@ class _SectionTitle extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
     child: Text(
       text,
-      style: TextStyle(color: AppTheme.ink, fontWeight: FontWeight.w800),
+      style: TextStyle(color: context.primaryText, fontWeight: FontWeight.w800),
     ),
   );
 }
@@ -181,7 +186,7 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: AppTheme.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(28),
     ),
     clipBehavior: Clip.antiAlias,

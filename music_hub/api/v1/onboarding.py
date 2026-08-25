@@ -31,6 +31,20 @@ async def languages(_: AuthenticatedUser = Depends(require_user)):
     }
 
 
+@router.get("/artists/suggested")
+async def suggested_artists(
+    language: list[str] = Query(default_factory=list, max_length=10),
+    limit: int = Query(default=20, ge=1, le=50),
+    current: AuthenticatedUser = Depends(require_user),
+    container: Container = Depends(get_container),
+):
+    return {
+        "data": await container.onboarding.suggested_artists(
+            current.id, language, limit
+        )
+    }
+
+
 @router.get("/artists")
 async def search_artists(
     q: str = Query(min_length=1, max_length=200),

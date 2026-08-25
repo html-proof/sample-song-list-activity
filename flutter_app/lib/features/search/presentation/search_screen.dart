@@ -63,9 +63,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               controller: _text,
               onChanged: controller.queryChanged,
               textInputAction: TextInputAction.search,
-              decoration: const InputDecoration(
+              style: TextStyle(color: context.primaryText, fontSize: 16),
+              cursorColor: context.colors.primary,
+              decoration: InputDecoration(
                 hintText: 'Search songs, artists, albums',
-                prefixIcon: Icon(Icons.search_rounded),
+                hintStyle: TextStyle(color: context.secondaryText),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: context.secondaryText,
+                ),
               ),
             ),
           ),
@@ -160,7 +166,7 @@ class _SearchLanding extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-            color: AppTheme.surface,
+            color: context.colors.surface,
             borderRadius: BorderRadius.circular(28),
           ),
           child: Column(
@@ -185,9 +191,9 @@ class _SearchLanding extends StatelessWidget {
       ],
       Text('Browse your sound', style: Theme.of(context).textTheme.titleLarge),
       const SizedBox(height: 4),
-      const Text(
+      Text(
         'Find music by language',
-        style: TextStyle(color: AppTheme.muted),
+        style: TextStyle(color: context.secondaryText),
       ),
       const SizedBox(height: 14),
       Wrap(
@@ -203,11 +209,11 @@ class _SearchLanding extends StatelessWidget {
                 height: 86,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const [
-                    AppTheme.peach,
-                    AppTheme.blue,
-                    AppTheme.lilac,
-                    AppTheme.mint,
+                  color: [
+                    context.accents.peach,
+                    context.accents.blue,
+                    context.accents.lilac,
+                    context.accents.mint,
                   ][index % 4],
                   borderRadius: BorderRadius.circular(24),
                 ),

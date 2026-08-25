@@ -30,7 +30,12 @@ class SettingsHubScreen extends ConsumerWidget {
         onRefresh: () =>
             ref.read(settingsControllerProvider.notifier).refresh(),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 36),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            4,
+            16,
+            36 + MediaQuery.paddingOf(context).bottom,
+          ),
           children: [
             if (syncError != null)
               _SyncBanner(
@@ -43,11 +48,11 @@ class SettingsHubScreen extends ConsumerWidget {
               onTap: () => context.go('/profile'),
             ),
             const _SectionTitle('Your music'),
-            const _SettingsGroup(
+            _SettingsGroup(
               children: [
                 _SettingsLink(
                   icon: Icons.language_rounded,
-                  color: AppTheme.blue,
+                  color: context.accents.blue,
                   title: 'Music languages',
                   subtitle: 'Languages used to shape your music feed',
                   route: '/settings/music-languages',
@@ -55,7 +60,7 @@ class SettingsHubScreen extends ConsumerWidget {
                 _Line(),
                 _SettingsLink(
                   icon: Icons.people_alt_outlined,
-                  color: AppTheme.lilac,
+                  color: context.accents.lilac,
                   title: 'Favorite artists',
                   subtitle: 'Artists that anchor your recommendations',
                   route: '/settings/favorite-artists',
@@ -67,7 +72,7 @@ class SettingsHubScreen extends ConsumerWidget {
               children: [
                 _SettingsLink(
                   icon: Icons.palette_outlined,
-                  color: AppTheme.peach,
+                  color: context.accents.peach,
                   title: 'Appearance & language',
                   subtitle: _summary(
                     settings.value?.general['theme_mode'],
@@ -78,7 +83,7 @@ class SettingsHubScreen extends ConsumerWidget {
                 const _Line(),
                 _SettingsLink(
                   icon: Icons.graphic_eq_rounded,
-                  color: AppTheme.blue,
+                  color: context.accents.blue,
                   title: 'Playback',
                   subtitle: _summary(
                     settings.value?.playback['streaming_quality'],
@@ -87,17 +92,17 @@ class SettingsHubScreen extends ConsumerWidget {
                   route: '/settings/playback',
                 ),
                 const _Line(),
-                const _SettingsLink(
+                _SettingsLink(
                   icon: Icons.download_for_offline_outlined,
-                  color: AppTheme.mint,
+                  color: context.accents.mint,
                   title: 'Downloads',
                   subtitle: 'Quality, Wi-Fi and automatic downloads',
                   route: '/settings/downloads',
                 ),
                 const _Line(),
-                const _SettingsLink(
+                _SettingsLink(
                   icon: Icons.auto_awesome_outlined,
-                  color: AppTheme.lilac,
+                  color: context.accents.lilac,
                   title: 'Recommendations',
                   subtitle: 'Control how your mixes learn',
                   route: '/settings/recommendations',
@@ -105,11 +110,11 @@ class SettingsHubScreen extends ConsumerWidget {
               ],
             ),
             const _SectionTitle('Control & privacy'),
-            const _SettingsGroup(
+            _SettingsGroup(
               children: [
                 _SettingsLink(
                   icon: Icons.notifications_none_rounded,
-                  color: AppTheme.peach,
+                  color: context.accents.peach,
                   title: 'Notifications & listening health',
                   subtitle: 'Releases, downloads and break reminders',
                   route: '/settings/notifications',
@@ -117,7 +122,7 @@ class SettingsHubScreen extends ConsumerWidget {
                 _Line(),
                 _SettingsLink(
                   icon: Icons.shield_outlined,
-                  color: AppTheme.blue,
+                  color: context.accents.blue,
                   title: 'Privacy & data',
                   subtitle: 'History, personalization and analytics',
                   route: '/settings/privacy',
@@ -125,7 +130,7 @@ class SettingsHubScreen extends ConsumerWidget {
                 _Line(),
                 _SettingsLink(
                   icon: Icons.storage_outlined,
-                  color: AppTheme.mint,
+                  color: context.accents.mint,
                   title: 'Storage',
                   subtitle: 'Downloads and temporary app data',
                   route: '/settings/storage',
@@ -166,10 +171,10 @@ class SettingsHubScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 18),
-            const Center(
+            Center(
               child: Text(
                 'Music Hub 1.0.0',
-                style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                style: TextStyle(color: context.secondaryText, fontSize: 12),
               ),
             ),
           ],
@@ -272,15 +277,15 @@ class _AccountCard extends StatelessWidget {
     child: Ink(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.ink,
+        color: context.colors.inverseSurface,
         borderRadius: BorderRadius.circular(30),
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 27,
-            backgroundColor: AppTheme.accent,
-            foregroundColor: AppTheme.ink,
+            backgroundColor: context.accents.highlight,
+            foregroundColor: context.accents.onHighlight,
             child: Icon(Icons.person_outline_rounded),
           ),
           const SizedBox(width: 15),
@@ -290,8 +295,8 @@ class _AccountCard extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.colors.onInverseSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -301,12 +306,19 @@ class _AccountCard extends StatelessWidget {
                     email,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white60),
+                    style: TextStyle(
+                      color: context.colors.onInverseSurface.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
                   ),
               ],
             ),
           ),
-          const Icon(Icons.arrow_outward_rounded, color: Colors.white),
+          Icon(
+            Icons.arrow_outward_rounded,
+            color: context.colors.onInverseSurface,
+          ),
         ],
       ),
     ),
@@ -322,7 +334,7 @@ class _SyncBanner extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 12),
     padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
     decoration: BoxDecoration(
-      color: AppTheme.peach,
+      color: context.accents.peach,
       borderRadius: BorderRadius.circular(20),
     ),
     child: Row(
@@ -354,7 +366,7 @@ class _SettingsGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: AppTheme.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(28),
     ),
     clipBehavior: Clip.antiAlias,
@@ -393,7 +405,7 @@ class _SettingsLink extends StatelessWidget {
       subtitle,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+      style: TextStyle(color: context.secondaryText, fontSize: 12),
     ),
     trailing: const Icon(Icons.chevron_right_rounded),
     onTap: () => context.push(route),

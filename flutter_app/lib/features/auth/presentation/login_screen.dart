@@ -17,7 +17,9 @@ class LoginScreen extends ConsumerWidget {
     });
     return Scaffold(
       body: CustomPaint(
-        painter: _ContourPainter(),
+        painter: _ContourPainter(
+          context.colors.onSurface.withValues(alpha: 0.10),
+        ),
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -42,7 +44,7 @@ class LoginScreen extends ConsumerWidget {
                       ],
                     ),
                     const Spacer(),
-                    const SizedBox(
+                    SizedBox(
                       height: 290,
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -52,7 +54,7 @@ class LoginScreen extends ConsumerWidget {
                             right: 26,
                             child: _MusicBlob(
                               size: 126,
-                              color: AppTheme.blue,
+                              color: context.accents.blue,
                               icon: Icons.headphones_rounded,
                               rotation: 0.16,
                             ),
@@ -62,7 +64,7 @@ class LoginScreen extends ConsumerWidget {
                             top: 88,
                             child: _MusicBlob(
                               size: 154,
-                              color: AppTheme.peach,
+                              color: context.accents.peach,
                               icon: Icons.album_rounded,
                               rotation: -0.12,
                             ),
@@ -72,7 +74,7 @@ class LoginScreen extends ConsumerWidget {
                             bottom: 0,
                             child: _MusicBlob(
                               size: 162,
-                              color: AppTheme.lilac,
+                              color: context.accents.lilac,
                               icon: Icons.graphic_eq_rounded,
                               rotation: 0.08,
                             ),
@@ -82,12 +84,16 @@ class LoginScreen extends ConsumerWidget {
                             top: 92,
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: AppTheme.accent,
+                                color: context.accents.highlight,
                                 shape: BoxShape.circle,
                               ),
                               child: Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Icon(Icons.play_arrow_rounded, size: 34),
+                                padding: const EdgeInsets.all(16),
+                                child: Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: context.accents.onHighlight,
+                                  size: 34,
+                                ),
                               ),
                             ),
                           ),
@@ -120,10 +126,10 @@ class LoginScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const Text(
+                    Text(
                       'Your languages, favorite artists, and a soundtrack that becomes more personal every day.',
                       style: TextStyle(
-                        color: AppTheme.muted,
+                        color: context.secondaryText,
                         height: 1.45,
                         fontSize: 15,
                       ),
@@ -136,11 +142,11 @@ class LoginScreen extends ConsumerWidget {
                                 .read(authControllerProvider.notifier)
                                 .signIn(),
                       icon: state.isLoading
-                          ? const SizedBox.square(
+                          ? SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Colors.white,
+                                color: context.colors.onPrimary,
                               ),
                             )
                           : const Icon(Icons.g_mobiledata_rounded, size: 26),
@@ -154,10 +160,13 @@ class LoginScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 13),
-                    const Center(
+                    Center(
                       child: Text(
                         'Secure sign-in powered by Firebase',
-                        style: TextStyle(color: AppTheme.muted, fontSize: 11),
+                        style: TextStyle(
+                          color: context.secondaryText,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ],
@@ -179,10 +188,14 @@ class _BrandMark extends StatelessWidget {
     width: 36,
     height: 36,
     decoration: BoxDecoration(
-      color: AppTheme.ink,
+      color: context.colors.primary,
       borderRadius: BorderRadius.circular(11),
     ),
-    child: const Icon(Icons.graphic_eq_rounded, color: Colors.white, size: 21),
+    child: Icon(
+      Icons.graphic_eq_rounded,
+      color: context.colors.onPrimary,
+      size: 21,
+    ),
   );
 }
 
@@ -207,7 +220,7 @@ class _MusicBlob extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         color: color,
-        border: Border.all(color: AppTheme.ink, width: 1.2),
+        border: Border.all(color: context.accents.onAccent, width: 1.2),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(62),
           topRight: Radius.circular(34),
@@ -215,16 +228,20 @@ class _MusicBlob extends StatelessWidget {
           bottomRight: Radius.circular(72),
         ),
       ),
-      child: Icon(icon, size: size * 0.42),
+      child: Icon(icon, color: context.accents.onAccent, size: size * 0.42),
     ),
   );
 }
 
 class _ContourPainter extends CustomPainter {
+  _ContourPainter(this.stroke);
+
+  final Color stroke;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.ink.withValues(alpha: 0.10)
+      ..color = stroke
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (var i = 0; i < 4; i++) {
@@ -244,5 +261,6 @@ class _ContourPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) =>
+      oldDelegate is! _ContourPainter || oldDelegate.stroke != stroke;
 }

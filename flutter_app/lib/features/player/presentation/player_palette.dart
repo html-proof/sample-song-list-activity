@@ -10,6 +10,16 @@ class PlayerPalette {
     required this.secondary,
   });
 
+  /// The player is always a dark stage, whatever the system theme is doing,
+  /// so it carries its own foreground pair instead of borrowing the app's
+  /// `onSurface` — which would be near-black in light mode and vanish here.
+  static const onSurface = Color(0xFFF6F5F3);
+  static const onSurfaceVariant = Color(0xFFBFBDBA);
+
+  /// Foreground for elements that are present but not the point: disabled
+  /// transport controls, inactive track, hairline borders.
+  static const onSurfaceFaint = Color(0xFF8A8886);
+
   static const fallback = PlayerPalette(
     background: Color(0xFF08090C),
     surface: Color(0xFF171A22),

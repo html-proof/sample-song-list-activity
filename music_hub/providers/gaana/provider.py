@@ -102,6 +102,27 @@ class GaanaProvider(MusicProvider):
         result = await self.client.get_similar_artists(artist_id, limit)
         return self._deduplicate(self._list(result, "similar artist"), limit)
 
+    async def suggested_artists(self, languages: list[str], limit: int = 20) -> list[dict]:
+        """Rank the artists behind what is trending in the requested languages."""
+        songs = await self.trending(languages, min(limit * 8, 200))
+        ranked: dict[str, float] = {}
+        for position, song in enumerate(songs):
+            seokeys = [
+                value.strip()
+                for value in str(song.get("artist_seokeys") or "").split(",")
+                if value.strip()
+            ]
+            # Songs higher up the trending list carry more weight, and a
+            # featured artist counts for less than the lead artist.
+            weight = 1.0 / (1.0 + position / 10.0)
+            for index, seokey in enumerate(seokeys):
+                ranked[seokey] = ranked.get(seokey, 0.0) + weight / (1.0 + index)
+        top = sorted(ranked, key=lambda seokey: ranked[seokey], reverse=True)[:limit]
+        if not top:
+            raise ResourceNotFound("No suggested artists were found")
+        result = await self.client.get_artist_info(top, False)
+        return self._deduplicate(self._list(result, "suggested artist"), limit)
+
     async def get_similar_albums(self, album_id: str, limit: int = 10) -> list[dict]:
         result = await self.client.get_similar_albums(album_id, limit)
         return self._deduplicate(self._list(result, "similar album"), limit)

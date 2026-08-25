@@ -27,6 +27,8 @@ class _MusicPreferencesScreenState
   List<String> _selectedLanguages = const [];
   List<MusicItem> _selectedArtists = const [];
   List<MusicItem> _results = const [];
+  List<MusicItem> _suggested = const [];
+  bool _loadingSuggestions = false;
   Timer? _debounce;
 
   @override
@@ -73,12 +75,35 @@ class _MusicPreferencesScreenState
             : const [];
         _loading = false;
       });
+      if (widget.page == MusicPreferencesPage.artists) {
+        unawaited(_loadSuggestions());
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error.toString();
         _loading = false;
       });
+    }
+  }
+
+  /// Recommendations for the artists page, so it opens with something to pick
+  /// from instead of an empty search box.
+  Future<void> _loadSuggestions() async {
+    setState(() => _loadingSuggestions = true);
+    try {
+      final values = await ref
+          .read(onboardingRepositoryProvider)
+          .suggestedArtists(_selectedLanguages);
+      if (!mounted) return;
+      setState(() {
+        _suggested = values;
+        _loadingSuggestions = false;
+      });
+    } catch (_) {
+      // Suggestions are a convenience; searching still works without them.
+      if (!mounted) return;
+      setState(() => _loadingSuggestions = false);
     }
   }
 
@@ -112,13 +137,17 @@ class _MusicPreferencesScreenState
     });
     try {
       final repository = ref.read(onboardingRepositoryProvider);
+      List<MusicItem>? storedArtists;
       if (widget.page == MusicPreferencesPage.languages) {
         await repository.updateLanguages(_selectedLanguages);
       } else {
-        await repository.updateArtists(_selectedArtists);
+        storedArtists = await repository.updateArtists(_selectedArtists);
       }
       if (!mounted) return;
-      setState(() => _saving = false);
+      setState(() {
+        _saving = false;
+        if (storedArtists != null) _selectedArtists = storedArtists;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Music preferences updated')),
       );
@@ -146,7 +175,9 @@ class _MusicPreferencesScreenState
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: languagesPage ? AppTheme.blue : AppTheme.lilac,
+                    color: languagesPage
+                        ? context.accents.blue
+                        : context.accents.lilac,
                     borderRadius: BorderRadius.circular(28),
                   ),
                   child: Text(
@@ -166,14 +197,19 @@ class _MusicPreferencesScreenState
                 if (languagesPage) _languageChoices() else _artistChoices(),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
-                  Text(_error!, style: const TextStyle(color: Colors.red)),
+                  Text(_error!, style: TextStyle(color: context.colors.error)),
                 ],
               ],
             ),
       bottomNavigationBar: _loading
           ? null
-          : SafeArea(
-              minimum: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+          : Padding(
+              padding: EdgeInsets.fromLTRB(
+                18,
+                8,
+                18,
+                18 + MediaQuery.paddingOf(context).bottom,
+              ),
               child: FilledButton(
                 onPressed: _saving ? null : _save,
                 child: Text(_saving ? 'Saving…' : 'Save changes'),
@@ -214,48 +250,57 @@ class _MusicPreferencesScreenState
           prefixIcon: Icon(Icons.search_rounded),
         ),
       ),
-      if (_selectedArtists.isNotEmpty) ...[
-        const SizedBox(height: 22),
-        const Text(
-          'Selected',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 14,
-          children: [
-            for (final artist in _selectedArtists)
-              _ArtistChoice(
-                artist: artist,
-                selected: true,
-                onTap: () => _toggleArtist(artist),
-              ),
-          ],
-        ),
-      ],
-      if (_results.isNotEmpty) ...[
+      if (_selectedArtists.isEmpty)
+        Padding(
+          padding: EdgeInsets.only(top: 22),
+          child: Text(
+            'No favorite artists yet. Tap any artist below, or search for '
+            'one, then save.',
+            style: TextStyle(color: context.secondaryText, height: 1.35),
+          ),
+        )
+      else
+        _artistSection('Selected', _selectedArtists),
+      if (_results.isNotEmpty)
+        _artistSection('Search results', _results)
+      else if (_loadingSuggestions) ...[
         const SizedBox(height: 25),
-        const Text(
-          'Search results',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 14,
-          children: [
-            for (final artist in _results)
-              _ArtistChoice(
-                artist: artist,
-                selected: _selectedArtists.any(
-                  (selected) => selected.id == artist.id,
-                ),
-                onTap: () => _toggleArtist(artist),
+        const Center(child: CircularProgressIndicator()),
+      ] else if (_suggestions.isNotEmpty)
+        _artistSection('Suggested for you', _suggestions),
+    ],
+  );
+
+  /// Suggestions the user has already picked are dropped, so the list never
+  /// shows the same artist twice.
+  List<MusicItem> get _suggestions => [
+    for (final artist in _suggested)
+      if (!_selectedArtists.any((selected) => selected.id == artist.id)) artist,
+  ];
+
+  Widget _artistSection(String title, List<MusicItem> artists) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 25),
+      Text(
+        title,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 12,
+        runSpacing: 14,
+        children: [
+          for (final artist in artists)
+            _ArtistChoice(
+              artist: artist,
+              selected: _selectedArtists.any(
+                (selected) => selected.id == artist.id,
               ),
-          ],
-        ),
-      ],
+              onTap: () => _toggleArtist(artist),
+            ),
+        ],
+      ),
     ],
   );
 
@@ -287,21 +332,36 @@ class _ArtistChoice extends StatelessWidget {
       borderRadius: BorderRadius.circular(25),
       child: Column(
         children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              OrganicArtwork(url: artist.imageUrl, size: 98),
-              if (selected)
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
+          SizedBox(
+            width: 98,
+            height: 98,
+            child: Stack(
+              children: [
+                OrganicArtwork(url: artist.imageUrl, size: 98),
+                if (selected)
+                  Positioned(
+                    right: 2,
+                    bottom: 2,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: context.colors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: context.colors.surface,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.check_rounded,
+                        size: 15,
+                        color: context.colors.onPrimary,
+                      ),
+                    ),
                   ),
-                  child: const Icon(Icons.check_rounded),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 7),
           Text(

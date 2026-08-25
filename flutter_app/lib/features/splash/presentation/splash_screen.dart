@@ -70,7 +70,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       end: 1,
     ).animate(CurvedAnimation(parent: _animation, curve: Curves.elasticOut));
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Stack(
           children: [
@@ -96,19 +96,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           width: 132,
                           height: 132,
                           decoration: BoxDecoration(
-                            color: AppTheme.ink,
+                            color: context.colors.primary,
                             borderRadius: BorderRadius.circular(42),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.ink.withValues(alpha: 0.16),
+                                color: context.colors.shadow.withValues(
+                                  alpha: 0.16,
+                                ),
                                 blurRadius: 34,
                                 offset: const Offset(0, 18),
                               ),
                             ],
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.graphic_eq_rounded,
-                            color: Colors.white,
+                            color: context.colors.onPrimary,
                             size: 62,
                           ),
                         ),
@@ -123,11 +125,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const Text(
+                      Text(
                         'Your sound. Your people. Your moment.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: AppTheme.muted,
+                          color: context.secondaryText,
                           fontSize: 15,
                           height: 1.4,
                         ),

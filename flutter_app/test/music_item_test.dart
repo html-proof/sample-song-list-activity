@@ -58,4 +58,36 @@ void main() {
     expect(media.duration, const Duration(minutes: 4, seconds: 5));
     expect(media.artUri, Uri.parse('https://example.test/system.jpg'));
   });
+
+  test('handles empty or whitespace artwork URLs safely without crashing', () {
+    final itemEmpty = MusicItem.fromJson({
+      'track_id': 'art-1',
+      'title': 'No Art Track',
+      'artists': 'Artist Name',
+      'images': {'urls': {'large_artwork': '   '}},
+    });
+    final mediaEmpty = mediaItemFromMusicItem(itemEmpty);
+    expect(mediaEmpty.artUri, isNull);
+
+    final itemNoImage = MusicItem.fromJson({
+      'track_id': 'art-2',
+      'title': 'Null Art Track',
+      'artists': 'Artist Name',
+    });
+    final mediaNoImage = mediaItemFromMusicItem(itemNoImage);
+    expect(mediaNoImage.artUri, isNull);
+  });
+
+  test('falls back to subtitle and raw album properties when explicit names absent', () {
+    final item = MusicItem(
+      id: 'sub-1',
+      title: 'Fallback Song',
+      subtitle: 'Subtitle Artist',
+      type: MusicItemType.song,
+      raw: {'album_name': 'Raw Album'},
+    );
+    final media = mediaItemFromMusicItem(item);
+    expect(media.artist, 'Subtitle Artist');
+    expect(media.album, 'Raw Album');
+  });
 }

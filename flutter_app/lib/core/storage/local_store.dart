@@ -61,6 +61,19 @@ class LocalStore {
     return value is Map ? value.cast<String, dynamic>() : null;
   }
 
+  /// The playback snapshot is written far more often than the queue, so it
+  /// lives under its own key and stays small enough to persist every few
+  /// seconds without stalling the audio isolate.
+  Future<void> saveSnapshot(Map<String, dynamic> snapshot) =>
+      _queue.put('snapshot', snapshot);
+
+  Map<dynamic, dynamic>? readSnapshot() {
+    final value = _queue.get('snapshot');
+    return value is Map ? value : null;
+  }
+
+  Future<void> clearSnapshot() => _queue.delete('snapshot');
+
   List<Map<String, dynamic>> downloads() => _downloads.values
       .whereType<Map>()
       .map((item) => item.cast<String, dynamic>())

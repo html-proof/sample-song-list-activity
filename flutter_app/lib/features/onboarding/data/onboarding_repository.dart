@@ -22,14 +22,25 @@ class OnboardingRepository {
       ApiEndpoints.onboardingArtists,
       query: {'q': query, 'limit': 20},
     );
-    final data = response['data'];
-    return data is List
-        ? data
-              .whereType<Map>()
-              .map((item) => MusicItem.fromJson(item.cast<String, dynamic>()))
-              .toList(growable: false)
-        : const [];
+    return _artists(response['data']);
   }
+
+  /// Artists to show before the user has typed a search, ranked from what is
+  /// trending in [languages]. Falls back to the saved languages when empty.
+  Future<List<MusicItem>> suggestedArtists(List<String> languages) async {
+    final response = await _api.getMap(
+      ApiEndpoints.onboardingSuggestedArtists,
+      query: {'language': languages, 'limit': 24},
+    );
+    return _artists(response['data']);
+  }
+
+  List<MusicItem> _artists(dynamic data) => data is List
+      ? data
+            .whereType<Map>()
+            .map((item) => MusicItem.fromJson(item.cast<String, dynamic>()))
+            .toList(growable: false)
+      : const [];
 
   Future<Map<String, dynamic>> currentPreferences() =>
       _api.getMap(ApiEndpoints.onboarding);
@@ -46,8 +57,8 @@ class OnboardingRepository {
     );
   }
 
-  Future<void> updateArtists(List<MusicItem> artists) async {
-    await _api.put(
+  Future<List<MusicItem>> updateArtists(List<MusicItem> artists) async {
+    final response = await _api.put(
       ApiEndpoints.preferenceArtists,
       data: {
         'artists': [
@@ -62,6 +73,17 @@ class OnboardingRepository {
         ],
       },
     );
+    final data = response is Map ? response['artists'] : null;
+    return data is List
+        ? data
+              .whereType<Map>()
+              .map(
+                (item) => MusicItem.fromJson(
+                  item.map((key, value) => MapEntry(key.toString(), value)),
+                ),
+              )
+              .toList(growable: false)
+        : artists;
   }
 
   Future<void> complete({

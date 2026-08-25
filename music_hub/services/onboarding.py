@@ -24,6 +24,25 @@ class OnboardingService:
     async def artists(self, query: str, limit: int) -> list[dict]:
         return await self.provider.search_artists(query, limit)
 
+    async def suggested_artists(
+        self,
+        user_id: UUID,
+        languages: list[str],
+        limit: int = 20,
+    ) -> list[dict]:
+        """Artists to show before the user has searched for anything."""
+        selected = [language.strip() for language in languages if language.strip()]
+        if not selected:
+            stored = await self.preferences.get_languages(user_id)
+            selected = [str(item["language_code"]) for item in stored]
+        key = f"suggested_artists:{','.join(sorted(selected)).casefold()}:{limit}"
+        cached = await self.cache.get_json(key)
+        if cached is not None:
+            return cached
+        result = await self.provider.suggested_artists(selected, limit)
+        await self.cache.set_json(key, result, 900)
+        return result
+
     async def complete(self, user_id: UUID, payload: OnboardingRequest) -> dict:
         await self.preferences.replace_onboarding(user_id, payload.languages, payload.artists)
         await self._invalidate(user_id)

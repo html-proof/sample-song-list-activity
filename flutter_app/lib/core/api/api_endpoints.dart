@@ -5,6 +5,8 @@ class ApiEndpoints {
   static const onboarding = '/api/v1/onboarding';
   static const onboardingLanguages = '/api/v1/onboarding/languages';
   static const onboardingArtists = '/api/v1/onboarding/artists';
+  static const onboardingSuggestedArtists =
+      '/api/v1/onboarding/artists/suggested';
   static const home = '/api/v1/home';
   static const search = '/api/v1/search';
   static const searchEvents = '/api/v1/search/events';

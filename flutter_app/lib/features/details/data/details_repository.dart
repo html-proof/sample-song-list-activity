@@ -55,6 +55,26 @@ class DetailsRepository {
     return MusicDetails(item: item, tracks: tracks, related: related);
   }
 
+  /// A public playlist belongs to the music provider, not to our database:
+  /// only user playlists, history and saves live in Supabase. The tracks are
+  /// therefore always fetched fresh from the provider.
+  Future<MusicDetails> playlist(String seokey, {MusicItem? known}) async {
+    final body = await _api.getMap(
+      '${ApiEndpoints.playlists}/provider/$seokey',
+    );
+    final tracks = _items(body['data'] ?? body['tracks']);
+    final item =
+        known ??
+        MusicItem.fromJson({
+          'playlist_id': seokey,
+          'seokey': seokey,
+          'type': 'playlist',
+          'name': body['name'] ?? 'Playlist',
+          'song_count': tracks.length,
+        });
+    return MusicDetails(item: item, tracks: tracks);
+  }
+
   List<MusicItem> _items(dynamic value) => value is List
       ? value
             .whereType<Map>()

@@ -40,7 +40,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final user = ref.watch(sessionProvider).value;
     return Scaffold(
       body: RefreshIndicator(
-        color: AppTheme.ink,
+        color: context.colors.primary,
         onRefresh: () =>
             ref.read(homeControllerProvider.notifier).load(refresh: true),
         child: CustomScrollView(
@@ -49,14 +49,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SliverAppBar(
               pinned: true,
               toolbarHeight: 86,
-              backgroundColor: AppTheme.background.withValues(alpha: 0.96),
+              backgroundColor: Theme.of(context).scaffoldBackgroundColor
+                  .withValues(alpha: 0.96),
               titleSpacing: 18,
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     _greeting(),
-                    style: const TextStyle(fontSize: 12, color: AppTheme.muted),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.secondaryText,
+                    ),
                   ),
                   const Text(
                     'My Soundwaves',
@@ -85,6 +89,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
             home.when(
+              // Home already on screen stays on screen while it revalidates.
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
               loading: () => const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               ),
@@ -144,9 +151,9 @@ class _HomeContent extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
             child: Center(
               child: feed.nextCursor == null
-                  ? const Text(
+                  ? Text(
                       'Made for your next listen',
-                      style: TextStyle(color: AppTheme.muted),
+                      style: TextStyle(color: context.secondaryText),
                     )
                   : const CircularProgressIndicator(strokeWidth: 2),
             ),
@@ -177,7 +184,7 @@ class _FeaturedCard extends StatelessWidget {
         height: 168,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.ink,
+          color: context.colors.inverseSurface,
           borderRadius: BorderRadius.circular(30),
         ),
         child: Row(
@@ -188,10 +195,12 @@ class _FeaturedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'NEW RELEASE',
                     style: TextStyle(
-                      color: Colors.white54,
+                      color: context.colors.onInverseSurface.withValues(
+                        alpha: 0.7,
+                      ),
                       fontSize: 10,
                       letterSpacing: 1.4,
                     ),
@@ -201,8 +210,8 @@ class _FeaturedCard extends StatelessWidget {
                     item.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: context.colors.onInverseSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                       height: 1.05,
@@ -210,24 +219,29 @@ class _FeaturedCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    item.subtitle ?? 'Selected for you',
+                    item.typedSubtitle ?? 'Selected for you',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    style: TextStyle(
+                      color: context.colors.onInverseSurface.withValues(
+                        alpha: 0.7,
+                      ),
+                      fontSize: 12,
+                    ),
                   ),
                   const Spacer(),
-                  const Align(
+                  Align(
                     alignment: Alignment.centerRight,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: context.colors.onInverseSurface,
                         shape: BoxShape.circle,
                       ),
                       child: Padding(
-                        padding: EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(10),
                         child: Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.black,
+                          color: context.colors.inverseSurface,
                           size: 25,
                         ),
                       ),
@@ -251,7 +265,8 @@ class _HomeSectionView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final artists = section.type == 'recommended_artists';
+    final artists = section.contentType == MusicItemType.artist;
+    final songs = section.contentType == MusicItemType.song;
     final large = !artists && sectionIndex % 3 == 1;
     return Padding(
       padding: const EdgeInsets.only(top: 20),
@@ -289,20 +304,27 @@ class _HomeSectionView extends ConsumerWidget {
                 return _MusicCard(
                   item: item,
                   index: index,
-                  artist: artists,
+                  artist: item.type == MusicItemType.artist,
                   large: large,
                   onTap: () => openMusicItem(
                     context,
                     ref,
                     item,
-                    queue: section.items
-                        .where((entry) => entry.playable)
-                        .toList(),
-                    index: section.items
-                        .take(index)
-                        .where((entry) => entry.playable)
-                        .length,
-                    source: section.type,
+                    // Only a row of songs forms a play queue. Tapping an
+                    // album, artist or playlist card opens its screen and
+                    // must never enqueue the row it sat in.
+                    queue: songs
+                        ? section.items
+                              .where((entry) => entry.playable)
+                              .toList()
+                        : null,
+                    index: songs
+                        ? section.items
+                              .take(index)
+                              .where((entry) => entry.playable)
+                              .length
+                        : 0,
+                    source: section.id,
                   ),
                 );
               },
@@ -342,10 +364,10 @@ class _MusicCard extends StatelessWidget {
         ? 176.0
         : 128.0;
     final colors = [
-      AppTheme.peach,
-      AppTheme.blue,
-      AppTheme.lilac,
-      AppTheme.mint,
+      context.accents.peach,
+      context.accents.blue,
+      context.accents.lilac,
+      context.accents.mint,
     ];
     return SizedBox(
       width: width,
@@ -384,10 +406,10 @@ class _MusicCard extends StatelessWidget {
             ),
             if (!artist)
               Text(
-                item.subtitle ?? '',
+                item.typedSubtitle ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                style: TextStyle(color: context.secondaryText, fontSize: 12),
               ),
           ],
         ),
@@ -412,8 +434,8 @@ class _HomeError extends StatelessWidget {
           Container(
             width: 84,
             height: 84,
-            decoration: const BoxDecoration(
-              color: AppTheme.peach,
+            decoration: BoxDecoration(
+              color: context.accents.peach,
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.wifi_off_rounded, size: 38),
@@ -427,7 +449,7 @@ class _HomeError extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppTheme.muted),
+            style: TextStyle(color: context.secondaryText),
           ),
           const SizedBox(height: 18),
           OutlinedButton(onPressed: retry, child: const Text('Try again')),

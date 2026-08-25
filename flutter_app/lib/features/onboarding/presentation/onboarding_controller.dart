@@ -25,6 +25,7 @@ class OnboardingState {
     this.languages = const [],
     this.artists = const [],
     this.results = const AsyncData([]),
+    this.suggestions = const AsyncData([]),
     this.saving = false,
     this.error,
   });
@@ -33,6 +34,7 @@ class OnboardingState {
   final List<String> languages;
   final List<MusicItem> artists;
   final AsyncValue<List<MusicItem>> results;
+  final AsyncValue<List<MusicItem>> suggestions;
   final bool saving;
   final String? error;
 
@@ -41,6 +43,7 @@ class OnboardingState {
     List<String>? languages,
     List<MusicItem>? artists,
     AsyncValue<List<MusicItem>>? results,
+    AsyncValue<List<MusicItem>>? suggestions,
     bool? saving,
     String? error,
     bool clearError = false,
@@ -50,6 +53,7 @@ class OnboardingState {
       languages: languages ?? this.languages,
       artists: artists ?? this.artists,
       results: results ?? this.results,
+      suggestions: suggestions ?? this.suggestions,
       saving: saving ?? this.saving,
       error: clearError ? null : error ?? this.error,
     );
@@ -76,6 +80,20 @@ class OnboardingController extends StateNotifier<OnboardingState> {
       return;
     }
     state = state.copyWith(step: 1, clearError: true);
+    unawaited(loadSuggestions());
+  }
+
+  /// Recommends artists from the chosen languages so the step opens with
+  /// something to pick instead of an empty search box.
+  Future<void> loadSuggestions() async {
+    if (state.languages.isEmpty) return;
+    state = state.copyWith(suggestions: const AsyncLoading());
+    try {
+      final result = await _repository.suggestedArtists(state.languages);
+      state = state.copyWith(suggestions: AsyncData(result));
+    } catch (error, stack) {
+      state = state.copyWith(suggestions: AsyncError(error, stack));
+    }
   }
 
   void back() => state = state.copyWith(step: 0, clearError: true);

@@ -56,7 +56,12 @@ class _SettingsDetailScreenState extends ConsumerState<SettingsDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(_title)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          40 + MediaQuery.paddingOf(context).bottom,
+        ),
         children: [
           _Intro(page: widget.page),
           const SizedBox(height: 18),
@@ -548,12 +553,12 @@ class _SettingsDetailScreenState extends ConsumerState<SettingsDetailScreen> {
         ],
       ),
       const SizedBox(height: 14),
-      const Padding(
+      Padding(
         padding: EdgeInsets.symmetric(horizontal: 6),
         child: Text(
           'Clearing temporary data does not remove your playlists, likes, '
           'account settings or downloaded music.',
-          style: TextStyle(color: AppTheme.muted, height: 1.4),
+          style: TextStyle(color: context.secondaryText, height: 1.4),
         ),
       ),
     ];
@@ -613,37 +618,37 @@ class _Intro extends StatelessWidget {
       SettingsPage.appearance => (
         Icons.palette_outlined,
         'Make Music Hub feel comfortable on every device.',
-        AppTheme.peach,
+        context.accents.peach,
       ),
       SettingsPage.playback => (
         Icons.graphic_eq_rounded,
         'Shape how every song sounds and flows into the next.',
-        AppTheme.blue,
+        context.accents.blue,
       ),
       SettingsPage.downloads => (
         Icons.download_for_offline_outlined,
         'Choose what stays ready when your connection is not.',
-        AppTheme.mint,
+        context.accents.mint,
       ),
       SettingsPage.recommendations => (
         Icons.auto_awesome_outlined,
         'You decide which signals can influence your music discovery.',
-        AppTheme.lilac,
+        context.accents.lilac,
       ),
       SettingsPage.notifications => (
         Icons.notifications_none_rounded,
         'Stay informed without letting the app become noisy.',
-        AppTheme.peach,
+        context.accents.peach,
       ),
       SettingsPage.privacy => (
         Icons.shield_outlined,
         'Your activity controls affect what the server stores immediately.',
-        AppTheme.blue,
+        context.accents.blue,
       ),
       SettingsPage.storage => (
         Icons.storage_outlined,
         'See what Music Hub keeps on this device.',
-        AppTheme.mint,
+        context.accents.mint,
       ),
     };
     return Container(
@@ -686,7 +691,7 @@ class _Group extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     decoration: BoxDecoration(
-      color: AppTheme.surface,
+      color: context.colors.surface,
       borderRadius: BorderRadius.circular(28),
     ),
     clipBehavior: Clip.antiAlias,
@@ -711,7 +716,7 @@ class _SwitchSetting extends StatelessWidget {
     title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
     subtitle: subtitle == null
         ? null
-        : Text(subtitle!, style: const TextStyle(color: AppTheme.muted)),
+        : Text(subtitle!, style: TextStyle(color: context.secondaryText)),
     value: value,
     onChanged: onChanged,
   );
@@ -777,7 +782,7 @@ class _SliderSetting extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
-            Text(label, style: const TextStyle(color: AppTheme.muted)),
+            Text(label, style: TextStyle(color: context.secondaryText)),
           ],
         ),
         Slider(

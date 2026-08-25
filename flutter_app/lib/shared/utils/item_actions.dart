@@ -62,7 +62,18 @@ Future<void> openMusicItem(
       if (key != null && context.mounted) context.push('/album/$key');
       return;
     case MusicItemType.playlist:
+      final key = item.seokey ?? (item.id.isEmpty ? null : item.id);
+      if (key != null && context.mounted) context.push('/playlist/$key');
+      return;
     case MusicItemType.unknown:
+      // Nothing here may guess. An item with no declared type is not opened
+      // as a song, because playing an album or an artist row would be worse
+      // than doing nothing.
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("This item can't be opened")),
+        );
+      }
       return;
   }
 }

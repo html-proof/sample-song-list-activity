@@ -15,7 +15,7 @@ class DownloadsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 78,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
@@ -30,7 +30,7 @@ class DownloadsScreen extends ConsumerWidget {
               'Music that travels with you',
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.muted,
+                color: context.secondaryText,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -50,7 +50,7 @@ class DownloadsView extends ConsumerWidget {
     ref.watch(downloadsRevisionProvider);
     final items = ref.watch(downloadRepositoryProvider).items();
     return items.isEmpty
-        ? const Center(
+        ? Center(
             child: Padding(
               padding: EdgeInsets.all(32),
               child: Column(
@@ -58,7 +58,7 @@ class DownloadsView extends ConsumerWidget {
                 children: [
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: AppTheme.peach,
+                      color: context.accents.peach,
                       shape: BoxShape.circle,
                     ),
                     child: Padding(
@@ -75,14 +75,17 @@ class DownloadsView extends ConsumerWidget {
                   Text(
                     'Downloads are stored only on this device and require a provider-supported direct audio file.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.muted),
+                    style: TextStyle(color: context.secondaryText),
                   ),
                 ],
               ),
             ),
           )
         : ListView.builder(
-            padding: const EdgeInsets.only(top: 12, bottom: 130),
+            padding: EdgeInsets.only(
+              top: 12,
+              bottom: 130 + MediaQuery.paddingOf(context).bottom,
+            ),
             itemCount: items.length,
             itemBuilder: (context, index) => MusicTile(
               item: items[index],
