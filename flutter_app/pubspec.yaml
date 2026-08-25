@@ -55,6 +55,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Drives the search debounce in tests without real waiting.
+  fake_async: ^1.3.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -62,6 +64,27 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# Launcher icons are generated from assets/icon/ — regenerate with:
+#   dart run flutter_launcher_icons
+# icon.png is the full-bleed tile (iOS/web/legacy Android); icon_foreground.png
+# is the same artwork on transparency, inset for the Android adaptive safe zone.
+flutter_launcher_icons:
+  image_path: "assets/icon/icon.png"
+  android: "ic_launcher"
+  adaptive_icon_background: "#0F082E"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+  # icon_foreground.png is already padded to the 66/108dp safe zone, so the
+  # generator must not inset it a second time.
+  adaptive_icon_foreground_inset: 0
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/icon.png"
+    background_color: "#0F082E"
+    theme_color: "#0F082E"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
