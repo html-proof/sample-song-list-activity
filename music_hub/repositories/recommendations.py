@@ -109,6 +109,7 @@ class RecommendationRepository:
                 SELECT song_id, artist_id, language
                 FROM liked_songs
                 WHERE user_id = $1 AND provider = 'gaana'
+                ORDER BY created_at DESC
                 """,
                 user_id,
             )
@@ -262,6 +263,18 @@ class RecommendationRepository:
             "artist_affinity": artist_affinity,
             "song_affinity": song_affinity,
             "liked_songs": {str(row["song_id"]) for row in liked if row["song_id"]},
+            # Ordered newest-first and de-duplicated, so the artist engine can
+            # seed discovery from what the user liked and played most recently.
+            "liked_artists": list(
+                dict.fromkeys(
+                    str(row["artist_id"]) for row in liked if row["artist_id"]
+                )
+            )[:20],
+            "recent_artists": list(
+                dict.fromkeys(
+                    str(row["artist_id"]) for row in history if row["artist_id"]
+                )
+            )[:20],
             "followed_artists": {str(row["artist_id"]) for row in followed if row["artist_id"]},
             "completed_songs": completed,
             "play_counts": dict(play_counts),

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_hub_app/app/theme.dart';
+import 'package:music_hub_app/features/artists/presentation/artist_controller.dart';
+import 'package:music_hub_app/features/artists/presentation/artist_views.dart';
 import 'package:music_hub_app/features/onboarding/presentation/onboarding_controller.dart';
 import 'package:music_hub_app/shared/models/music_item.dart';
 import 'package:music_hub_app/shared/widgets/artwork.dart';
@@ -26,19 +28,23 @@ class _MusicPreferencesScreenState
   List<String> _languages = const [];
   List<String> _selectedLanguages = const [];
   List<MusicItem> _selectedArtists = const [];
-  List<MusicItem> _results = const [];
-  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
+    // The artist controller is shared with the Library tab, so this screen
+    // starts from recommendations rather than inheriting a query typed there.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(artistControllerProvider.notifier).cancelSearch();
+    });
     unawaited(_load());
   }
 
   @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
+  void deactivate() {
+    // Leave the shared controller clean for whichever screen comes next.
+    ref.read(artistControllerProvider.notifier).cancelSearch();
+    super.deactivate();
   }
 
   Future<void> _load() async {
@@ -82,24 +88,6 @@ class _MusicPreferencesScreenState
     }
   }
 
-  void _search(String query) {
-    _debounce?.cancel();
-    if (query.trim().length < 2) {
-      setState(() => _results = const []);
-      return;
-    }
-    _debounce = Timer(const Duration(milliseconds: 350), () async {
-      try {
-        final values = await ref
-            .read(onboardingRepositoryProvider)
-            .artists(query.trim());
-        if (mounted) setState(() => _results = values);
-      } catch (error) {
-        if (mounted) setState(() => _error = error.toString());
-      }
-    });
-  }
-
   Future<void> _save() async {
     if (widget.page == MusicPreferencesPage.languages &&
         _selectedLanguages.isEmpty) {
@@ -134,6 +122,7 @@ class _MusicPreferencesScreenState
   @override
   Widget build(BuildContext context) {
     final languagesPage = widget.page == MusicPreferencesPage.languages;
+    final palette = AppPalette.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(languagesPage ? 'Music languages' : 'Favorite artists'),
@@ -146,7 +135,7 @@ class _MusicPreferencesScreenState
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: languagesPage ? AppTheme.blue : AppTheme.lilac,
+                    color: languagesPage ? palette.blue : palette.lilac,
                     borderRadius: BorderRadius.circular(28),
                   ),
                   child: Text(
@@ -155,10 +144,11 @@ class _MusicPreferencesScreenState
                               'language is a separate appearance setting.'
                         : 'Add or remove artists to reshape future mixes. '
                               'Search results come from the music provider.',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       height: 1.35,
+                      color: palette.onTile,
                     ),
                   ),
                 ),
@@ -204,60 +194,61 @@ class _MusicPreferencesScreenState
     ],
   );
 
-  Widget _artistChoices() => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      TextField(
-        onChanged: _search,
-        decoration: const InputDecoration(
-          hintText: 'Search artists',
-          prefixIcon: Icon(Icons.search_rounded),
-        ),
-      ),
-      if (_selectedArtists.isNotEmpty) ...[
-        const SizedBox(height: 22),
-        const Text(
-          'Selected',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 14,
-          children: [
-            for (final artist in _selectedArtists)
-              _ArtistChoice(
-                artist: artist,
-                selected: true,
-                onTap: () => _toggleArtist(artist),
-              ),
-          ],
-        ),
-      ],
-      if (_results.isNotEmpty) ...[
-        const SizedBox(height: 25),
-        const Text(
-          'Search results',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 14,
-          children: [
-            for (final artist in _results)
-              _ArtistChoice(
-                artist: artist,
-                selected: _selectedArtists.any(
-                  (selected) => selected.id == artist.id,
+  Widget _artistChoices() {
+    final searching =
+        ref.watch(artistControllerProvider).mode == ArtistMode.search;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ArtistSearchField(),
+        if (_selectedArtists.isNotEmpty) ...[
+          const SizedBox(height: 22),
+          const Text(
+            'Selected',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 14,
+            children: [
+              for (final artist in _selectedArtists)
+                _ArtistChoice(
+                  artist: artist,
+                  selected: true,
+                  onTap: () => _toggleArtist(artist),
                 ),
-                onTap: () => _toggleArtist(artist),
-              ),
-          ],
+            ],
+          ),
+        ],
+        const SizedBox(height: 25),
+        Text(
+          searching ? 'Search results' : 'Recommended for you',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 12),
+        // A fixed height because this sits inside a ListView; the grids scroll
+        // on their own.
+        SizedBox(
+          height: 420,
+          child: searching
+              ? ArtistSearchResults(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  isSelected: _isSelected,
+                  onArtistTap: _toggleArtist,
+                )
+              : RecommendedArtistsView(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  isSelected: _isSelected,
+                  onArtistTap: _toggleArtist,
+                ),
         ),
       ],
-    ],
-  );
+    );
+  }
+
+  bool _isSelected(MusicItem artist) =>
+      _selectedArtists.any((selected) => selected.id == artist.id);
 
   void _toggleArtist(MusicItem artist) {
     setState(() {
@@ -299,7 +290,7 @@ class _ArtistChoice extends StatelessWidget {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check_rounded),
+                  child: const Icon(Icons.check_rounded, color: AppTheme.ink),
                 ),
             ],
           ),

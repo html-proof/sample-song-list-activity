@@ -6,7 +6,10 @@ from music_hub.config import Settings
 from music_hub.database import Database
 from music_hub.providers.base import MusicProvider
 from music_hub.providers.lyrics.base import LyricsProvider
-from music_hub.recommendations import RecommendationEngine
+from music_hub.recommendations import (
+    ArtistRecommendationEngine,
+    RecommendationEngine,
+)
 from music_hub.repositories import (
     DeviceRepository,
     HistoryRepository,
@@ -55,6 +58,7 @@ class Container:
     library: LibraryService
     playlists: PlaylistService
     recommendations: RecommendationEngine
+    artist_recommendations: ArtistRecommendationEngine
     settings_service: SettingsService
     devices: DeviceService
     home: HomeService

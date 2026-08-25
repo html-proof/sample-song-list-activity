@@ -23,6 +23,7 @@ from music_hub.providers.gaana import GaanaProvider
 from music_hub.providers.lyrics import LrclibProvider, NullLyricsProvider
 from music_hub.recommendations.candidate_generator import CandidateGenerator
 from music_hub.recommendations.cursor import InvalidCursor
+from music_hub.recommendations.artist_engine import ArtistRecommendationEngine
 from music_hub.recommendations.engine import RecommendationEngine
 from music_hub.repositories import (
     DeviceRepository,
@@ -99,6 +100,12 @@ async def build_container(settings: Settings) -> Container:
         cache,
         settings,
     )
+    artist_recommendation_engine = ArtistRecommendationEngine(
+        recommendations_repository,
+        provider,
+        cache,
+        settings,
+    )
     users = UserService(users_repository)
     onboarding = OnboardingService(preferences_repository, provider, cache)
     settings_service = SettingsService(settings_repository, cache)
@@ -152,6 +159,7 @@ async def build_container(settings: Settings) -> Container:
         library=library,
         playlists=playlists,
         recommendations=recommendation_engine,
+        artist_recommendations=artist_recommendation_engine,
         settings_service=settings_service,
         devices=devices,
         home=home,

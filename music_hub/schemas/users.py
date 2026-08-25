@@ -59,10 +59,31 @@ class OnboardingRequest(BaseModel):
         return self
 
 
+class StoredArtistPreference(BaseModel):
+    """A row that is already in the database, on its way back out.
+
+    ``ArtistPreference`` guards what callers are allowed to write. Reusing it to
+    serialise a read made every stored row re-run those checks, so a single
+    legacy row with a non-numeric id failed response validation and turned the
+    whole list into a 500 instead of returning the other artists.
+    """
+
+    provider: str = "gaana"
+    provider_artist_id: str
+    artist_name: str
+    artist_image: str | None = None
+    preference_score: float = 1.0
+
+
+class StoredLanguagePreference(BaseModel):
+    language_code: str
+    priority: int = 1
+
+
 class OnboardingResponse(BaseModel):
     onboarding_completed: bool
-    languages: list[LanguagePreference]
-    artists: list[ArtistPreference]
+    languages: list[StoredLanguagePreference]
+    artists: list[StoredArtistPreference]
 
 
 class LanguagePreferencesUpdate(BaseModel):

@@ -10,6 +10,8 @@ class ApiEndpoints {
   static const searchEvents = '/api/v1/search/events';
   static const songs = '/api/v1/songs';
   static const artists = '/api/v1/artists';
+  static const artistsRecommended = '/api/v1/artists/recommended';
+  static const searchArtists = '/api/v1/search/artists';
   static const albums = '/api/v1/albums';
   static const libraryLikes = '/api/v1/library/likes';
   static const libraryArtists = '/api/v1/library/artists';

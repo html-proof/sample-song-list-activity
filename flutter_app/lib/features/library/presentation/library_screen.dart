@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:music_hub_app/app/theme.dart';
+import 'package:music_hub_app/features/artists/presentation/artist_controller.dart';
+import 'package:music_hub_app/features/artists/presentation/artist_views.dart';
 import 'package:music_hub_app/features/downloads/presentation/downloads_screen.dart';
 import 'package:music_hub_app/features/library/presentation/library_controller.dart';
 import 'package:music_hub_app/shared/models/music_item.dart';
 import 'package:music_hub_app/shared/utils/item_actions.dart';
-import 'package:music_hub_app/shared/widgets/artwork.dart';
 import 'package:music_hub_app/shared/widgets/music_tile.dart';
 
 class LibraryScreen extends ConsumerWidget {
@@ -14,15 +15,16 @@ class LibraryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final library = ref.watch(libraryControllerProvider);
+    final palette = AppPalette.of(context);
     return DefaultTabController(
       length: 4,
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 78,
-          title: const Column(
+          title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Collections',
                 style: TextStyle(
                   fontSize: 31,
@@ -34,7 +36,7 @@ class LibraryScreen extends ConsumerWidget {
                 'Your saved soundtracks',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppTheme.muted,
+                  color: palette.muted,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -44,21 +46,21 @@ class LibraryScreen extends ConsumerWidget {
             IconButton(
               onPressed: () => _createPlaylist(context, ref),
               style: IconButton.styleFrom(
-                backgroundColor: AppTheme.ink,
-                foregroundColor: Colors.white,
+                backgroundColor: palette.navBar,
+                foregroundColor: palette.onNavBar,
               ),
               icon: const Icon(Icons.add_rounded),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             dividerColor: Colors.transparent,
-            indicatorColor: AppTheme.ink,
-            labelColor: AppTheme.ink,
-            unselectedLabelColor: AppTheme.muted,
-            labelStyle: TextStyle(fontWeight: FontWeight.w800),
-            tabs: [
+            indicatorColor: palette.ink,
+            labelColor: palette.ink,
+            unselectedLabelColor: palette.muted,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+            tabs: const [
               Tab(text: 'Songs'),
               Tab(text: 'Playlists'),
               Tab(text: 'Artists'),
@@ -76,7 +78,7 @@ class LibraryScreen extends ConsumerWidget {
             children: [
               _SavedSongs(liked: data.likedSongs, recent: data.recent),
               _Playlists(playlists: data.playlists),
-              _Artists(items: data.artists),
+              _Artists(followed: data.artists),
               const DownloadsView(),
             ],
           ),
@@ -140,21 +142,22 @@ class _SavedSongs extends ConsumerWidget {
     if (liked.isEmpty && recent.isEmpty) {
       return const _Empty(label: 'Like a song to start your library');
     }
+    final palette = AppPalette.of(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 10, 0, 130),
       children: [
         _LibraryHeading(
           icon: Icons.favorite_rounded,
-          color: AppTheme.peach,
+          color: palette.peach,
           title: 'Liked songs',
           count: liked.length,
         ),
         if (liked.isEmpty)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 8, 20, 18),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
             child: Text(
               'Songs you like will appear here.',
-              style: TextStyle(color: AppTheme.muted),
+              style: TextStyle(color: palette.muted),
             ),
           )
         else
@@ -174,7 +177,7 @@ class _SavedSongs extends ConsumerWidget {
           const SizedBox(height: 18),
           _LibraryHeading(
             icon: Icons.history_rounded,
-            color: AppTheme.blue,
+            color: palette.blue,
             title: 'Recently played',
             count: recent.length,
           ),
@@ -221,7 +224,7 @@ class _LibraryHeading extends StatelessWidget {
             color: color,
             borderRadius: BorderRadius.circular(15),
           ),
-          child: Icon(icon, size: 22),
+          child: Icon(icon, size: 22, color: AppPalette.of(context).onTile),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -229,49 +232,100 @@ class _LibraryHeading extends StatelessWidget {
         ),
         Text(
           '$count tracks',
-          style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+          style: TextStyle(color: AppPalette.of(context).muted, fontSize: 12),
         ),
       ],
     ),
   );
 }
 
+/// The artist surface: search when the user is typing, recommendations
+/// otherwise. The artists already followed lead the recommendation list rather
+/// than being a separate static grid.
 class _Artists extends ConsumerWidget {
-  const _Artists({required this.items});
+  const _Artists({required this.followed});
 
-  final List<MusicItem> items;
+  final List<MusicItem> followed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (items.isEmpty) {
-      return const _Empty(label: 'Follow artists to see them here');
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 120),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.85,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+    final searching = ref.watch(
+      artistControllerProvider.select(
+        (state) => state.mode == ArtistMode.search,
       ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => InkWell(
-        onTap: () =>
-            openMusicItem(context, ref, items[index], source: 'library'),
-        child: Column(
-          children: [
-            Expanded(
-              child: OrganicArtwork(
-                url: items[index].imageUrl,
-                size: 150,
-                variant: index,
+    );
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: ArtistSearchField(),
+        ),
+        Expanded(
+          child: searching
+              ? const ArtistSearchResults()
+              : _FollowedThenRecommended(followed: followed),
+        ),
+      ],
+    );
+  }
+}
+
+/// Followed artists stay pinned at the top so the tab still answers "who do I
+/// follow", with discovery continuing below it.
+class _FollowedThenRecommended extends StatelessWidget {
+  const _FollowedThenRecommended({required this.followed});
+
+  final List<MusicItem> followed;
+
+  @override
+  Widget build(BuildContext context) {
+    if (followed.isEmpty) return const RecommendedArtistsView();
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Text(
+              'Your artists',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 150,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: followed.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (context, index) => SizedBox(
+                width: 104,
+                child: ArtistCard(
+                  artist: followed[index],
+                  variant: index,
+                  source: 'library_artists',
+                ),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(items[index].title, maxLines: 1),
-          ],
+          ),
         ),
-      ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 26, 16, 10),
+            child: Text(
+              'Recommended for you',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+        ),
+        const SliverFillRemaining(
+          hasScrollBody: true,
+          child: RecommendedArtistsView(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 130),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -286,12 +340,8 @@ class _Playlists extends StatelessWidget {
     if (playlists.isEmpty) {
       return const _Empty(label: 'Create your first playlist');
     }
-    const colors = [
-      AppTheme.peach,
-      AppTheme.blue,
-      AppTheme.lilac,
-      AppTheme.mint,
-    ];
+    final palette = AppPalette.of(context);
+    final colors = [palette.peach, palette.blue, palette.lilac, palette.mint];
     return GridView.builder(
       padding: const EdgeInsets.fromLTRB(16, 18, 16, 130),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -319,7 +369,13 @@ class _Playlists extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.68),
                     borderRadius: BorderRadius.circular(22),
                   ),
-                  child: const Icon(Icons.graphic_eq_rounded, size: 48),
+                  // The puck stays white in both themes, so pin the glyph
+                  // dark instead of letting it follow the foreground.
+                  child: const Icon(
+                    Icons.graphic_eq_rounded,
+                    size: 48,
+                    color: AppTheme.ink,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -338,7 +394,7 @@ class _Playlists extends StatelessWidget {
               ),
               Text(
                 '${playlist['track_count'] ?? 0} tracks',
-                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                style: TextStyle(color: palette.muted, fontSize: 12),
               ),
             ],
           ),
@@ -353,24 +409,27 @@ class _Empty extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 84,
-          height: 84,
-          decoration: const BoxDecoration(
-            color: AppTheme.surfaceHigh,
-            shape: BoxShape.circle,
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 84,
+            height: 84,
+            decoration: BoxDecoration(
+              color: palette.panelHigh,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.library_music_outlined, size: 38),
           ),
-          child: const Icon(Icons.library_music_outlined, size: 38),
-        ),
-        const SizedBox(height: 14),
-        Text(label, style: const TextStyle(color: AppTheme.muted)),
-      ],
-    ),
-  );
+          const SizedBox(height: 14),
+          Text(label, style: TextStyle(color: palette.muted)),
+        ],
+      ),
+    );
+  }
 }
 
 class _LibraryError extends StatelessWidget {

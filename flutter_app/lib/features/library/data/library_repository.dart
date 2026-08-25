@@ -27,10 +27,17 @@ class LibraryRepository {
       _api.get(ApiEndpoints.libraryArtists),
       _api.get(ApiEndpoints.playlists),
       _api.get(ApiEndpoints.historyRecent),
+      _preferredArtists(),
     ]);
     return LibraryData(
       likedSongs: _items(_data(values[0])),
-      artists: _items(_data(values[1])),
+      // Followed artists and onboarding favourites live in separate tables, so
+      // the artists a user picked as their favourites never reached this tab.
+      // Follows come first because they are the more deliberate action.
+      artists: mergeArtists(
+        _items(_data(values[1])),
+        values[4] as List<MusicItem>,
+      ),
       playlists: values[2] is List
           ? (values[2] as List)
                 .whereType<Map>()
@@ -39,6 +46,31 @@ class LibraryRepository {
           : const [],
       recent: _items(_data(values[3])),
     );
+  }
+
+  /// The artists chosen during onboarding. A failure here must not empty the
+  /// rest of the library, so it degrades to no extra artists.
+  Future<List<MusicItem>> _preferredArtists() async {
+    try {
+      final response = await _api.getMap(ApiEndpoints.onboarding);
+      return _items(response['artists']);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Follows first, then onboarding favourites, de-duplicated by id.
+  static List<MusicItem> mergeArtists(
+    List<MusicItem> followed,
+    List<MusicItem> preferred,
+  ) {
+    final merged = <MusicItem>[...followed];
+    final seen = followed.map((item) => item.id).toSet();
+    for (final artist in preferred) {
+      if (artist.id.isEmpty || !seen.add(artist.id)) continue;
+      merged.add(artist);
+    }
+    return List<MusicItem>.unmodifiable(merged);
   }
 
   Future<void> like(MusicItem item) async {
