@@ -17,6 +17,7 @@ import 'package:music_hub_app/features/settings/presentation/settings_detail_scr
 import 'package:music_hub_app/features/settings/presentation/settings_hub_screen.dart';
 import 'package:music_hub_app/features/settings/presentation/music_preferences_screen.dart';
 import 'package:music_hub_app/features/splash/presentation/splash_screen.dart';
+import 'package:music_hub_app/shared/models/music_item.dart';
 import 'package:music_hub_app/shared/widgets/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -101,14 +102,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/artist/:seokey',
-        builder: (_, state) =>
-            ArtistScreen(seokey: state.pathParameters['seokey']!),
+        builder: (_, state) => ArtistScreen(
+          seokey: state.pathParameters['seokey']!,
+          // Supplied when the user came from an artist card, so the header can
+          // render on the first frame instead of after the details request.
+          seed: state.extra is MusicItem ? state.extra! as MusicItem : null,
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/album/:seokey',
         builder: (_, state) =>
             AlbumScreen(seokey: state.pathParameters['seokey']!),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/playlist/:seokey',
+        builder: (_, state) => PlaylistScreen(
+          seokey: state.pathParameters['seokey']!,
+          seed: state.extra is MusicItem ? state.extra! as MusicItem : null,
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

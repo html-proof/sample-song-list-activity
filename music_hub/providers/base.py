@@ -17,6 +17,9 @@ class MusicProvider(ABC):
     async def search_artists(self, query: str, limit: int = 10) -> list[dict]: ...
 
     @abstractmethod
+    async def search_playlists(self, query: str, limit: int = 10) -> list[dict]: ...
+
+    @abstractmethod
     async def get_song(self, seokey: str) -> dict: ...
 
     @abstractmethod

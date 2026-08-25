@@ -26,6 +26,39 @@ class MusicItem {
   bool get playable =>
       type == MusicItemType.song && streamUrl?.isNotEmpty == true;
 
+  /// The primary artist, as shown on a song or album result.
+  String? get artistName => _text(raw['artists'] ?? raw['artist_name']);
+
+  /// The album a song belongs to. Secondary metadata only: a song is still a
+  /// song, and must never be presented as its album.
+  String? get albumName => _text(raw['album']);
+
+  String? get year {
+    final release = _text(raw['release_date'] ?? raw['year']);
+    if (release == null) return null;
+    final match = RegExp(r'\d{4}').firstMatch(release);
+    return match?.group(0);
+  }
+
+  int? get songCount => int.tryParse(
+    (raw['song_count'] ?? raw['track_count'] ?? '').toString(),
+  );
+
+  /// The word shown on the result card so the user can tell at a glance what
+  /// kind of thing they are looking at.
+  String? get typeLabel => switch (type) {
+    MusicItemType.song => 'Song',
+    MusicItemType.artist => 'Artist',
+    MusicItemType.album => 'Album',
+    MusicItemType.playlist => 'Playlist',
+    MusicItemType.unknown => null,
+  };
+
+  static String? _text(dynamic value) {
+    final text = value?.toString().trim();
+    return text == null || text.isEmpty ? null : text;
+  }
+
   factory MusicItem.fromJson(Map<String, dynamic> json) {
     final type = _type(json);
     final images = _map(json['images']);
@@ -85,7 +118,26 @@ class MusicItem {
 
   Map<String, dynamic> toJson() => raw;
 
+  /// The content type the backend declared, falling back to field inference.
+  ///
+  /// Inference is only ever a fallback for the endpoints that predate the
+  /// `type` field, because the fields overlap: a song carries `album_id` just
+  /// as an album does, and both an album and a playlist carry a track count.
+  /// Search always declares the type, so search results never reach the
+  /// guessing branch.
   static MusicItemType _type(Map<String, dynamic> json) {
+    final declared = json['type']?.toString().trim().toLowerCase();
+    switch (declared) {
+      case 'song':
+      case 'track':
+        return MusicItemType.song;
+      case 'artist':
+        return MusicItemType.artist;
+      case 'album':
+        return MusicItemType.album;
+      case 'playlist':
+        return MusicItemType.playlist;
+    }
     if (json.containsKey('track_id') ||
         json.containsKey('song_id') ||
         json.containsKey('stream_urls') ||

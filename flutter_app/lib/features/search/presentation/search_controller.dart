@@ -19,27 +19,35 @@ final searchControllerProvider =
       return SearchController(ref.watch(searchRepositoryProvider));
     });
 
+/// Below this the landing screen is shown instead of results.
+const _minimumQueryLength = 2;
+
 class SearchState {
   const SearchState({
     this.query = '',
-    this.type = 'all',
+    this.category = SearchCategory.all,
     this.results = const AsyncData(SearchResults()),
     this.recent = const [],
   });
 
   final String query;
-  final String type;
+  final SearchCategory category;
   final AsyncValue<SearchResults> results;
   final List<String> recent;
 
+  /// True while a request is in flight over results that are already on
+  /// screen, so the view can show a thin progress hint instead of tearing the
+  /// list down and rebuilding it.
+  bool get refreshing => results.isLoading && results.hasValue;
+
   SearchState copyWith({
     String? query,
-    String? type,
+    SearchCategory? category,
     AsyncValue<SearchResults>? results,
     List<String>? recent,
   }) => SearchState(
     query: query ?? this.query,
-    type: type ?? this.type,
+    category: category ?? this.category,
     results: results ?? this.results,
     recent: recent ?? this.recent,
   );
@@ -53,46 +61,76 @@ class SearchController extends StateNotifier<SearchState> {
   Timer? _debounce;
   CancelToken? _cancelToken;
 
+  /// Incremented for every search that is started or abandoned. A response
+  /// whose generation is no longer current is dropped, so a slow "ari" can
+  /// never land on top of a fast "arijit".
+  int _generation = 0;
+
   void queryChanged(String query) {
     state = state.copyWith(query: query);
     _debounce?.cancel();
-    _cancelToken?.cancel('Superseded by a newer search');
-    if (query.trim().length < 2) {
+    if (query.trim().length < _minimumQueryLength) {
+      // Clearing the field returns to the landing screen, and any request
+      // still running is abandoned so it cannot repopulate it.
+      _abandonInFlight();
       state = state.copyWith(results: const AsyncData(SearchResults()));
       return;
     }
-    _debounce = Timer(AppConfig.searchDebounce, () => _search(query.trim()));
+    _debounce = Timer(AppConfig.discoverSearchDebounce, () => _search(query.trim()));
   }
 
-  void selectType(String type) {
-    if (type == state.type) return;
-    state = state.copyWith(type: type);
-    if (state.query.trim().length >= 2) _search(state.query.trim());
+  void selectCategory(SearchCategory category) {
+    if (category == state.category) return;
+    state = state.copyWith(category: category);
+    final query = state.query.trim();
+    if (query.length >= _minimumQueryLength) _search(query);
   }
 
   void submitRecent(String query) {
+    _debounce?.cancel();
     state = state.copyWith(query: query);
-    _search(query);
+    _search(query.trim());
+  }
+
+  void retry() {
+    final query = state.query.trim();
+    if (query.length >= _minimumQueryLength) _search(query);
+  }
+
+  void _abandonInFlight() {
+    _generation++;
+    _cancelToken?.cancel('Superseded by a newer search');
+    _cancelToken = null;
   }
 
   Future<void> _search(String query) async {
-    _cancelToken = CancelToken();
-    state = state.copyWith(results: const AsyncLoading());
+    _cancelToken?.cancel('Superseded by a newer search');
+    final generation = ++_generation;
+    final token = CancelToken();
+    _cancelToken = token;
+    // The previous results stay on screen underneath the loading flag: tearing
+    // them down on every keystroke is what makes a search field flicker.
+    state = state.copyWith(
+      results: const AsyncLoading<SearchResults>().copyWithPrevious(
+        state.results,
+      ),
+    );
     try {
       final results = await _repository.search(
         query,
-        state.type,
-        cancelToken: _cancelToken,
+        state.category,
+        cancelToken: token,
       );
+      if (generation != _generation) return;
       state = state.copyWith(
         results: AsyncData(results),
         recent: _repository.recent(),
       );
     } on DioException catch (error, stack) {
-      if (!CancelToken.isCancel(error)) {
-        state = state.copyWith(results: AsyncError(error, stack));
-      }
+      if (generation != _generation || CancelToken.isCancel(error)) return;
+      state = state.copyWith(results: AsyncError(error, stack));
     } catch (error, stack) {
+      if (generation != _generation) return;
       state = state.copyWith(results: AsyncError(error, stack));
     }
   }

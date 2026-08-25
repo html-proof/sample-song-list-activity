@@ -9,6 +9,16 @@ import 'package:music_hub_app/shared/utils/item_actions.dart';
 import 'package:music_hub_app/shared/widgets/artwork.dart';
 import 'package:music_hub_app/shared/widgets/music_tile.dart';
 
+/// How many of each type the mixed tab shows before the rest are left to that
+/// type's own tab, so artists and albums stay reachable without scrolling past
+/// every song.
+const _allTabLimits = {
+  MusicItemType.song: 5,
+  MusicItemType.artist: 3,
+  MusicItemType.album: 3,
+  MusicItemType.playlist: 3,
+};
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -31,6 +41,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final controller = ref.read(searchControllerProvider.notifier);
     final languages =
         ref.watch(availableLanguagesProvider).value ?? const <String>[];
+    final results = state.results;
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 76,
@@ -76,18 +87,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 children: [
-                  for (final type in const [
-                    'all',
-                    'songs',
-                    'artists',
-                    'albums',
-                  ])
+                  for (final category in SearchCategory.values)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        selected: state.type == type,
-                        label: Text(type[0].toUpperCase() + type.substring(1)),
-                        onSelected: (_) => controller.selectType(type),
+                        selected: state.category == category,
+                        label: Text(category.label),
+                        onSelected: (_) => controller.selectCategory(category),
                       ),
                     ),
                 ],
@@ -109,31 +115,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       controller.submitRecent(query);
                     },
                   )
-                : state.results.when(
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    error: (error, _) => Center(child: Text(error.toString())),
-                    data: (results) => _Results(
-                      results: results,
-                      type: state.type,
-                      onTap: (item, queue, index) {
-                        controller.recordClick(item);
-                        openMusicItem(
-                          context,
-                          ref,
-                          item,
-                          queue: queue,
-                          index: index,
-                          source: 'search',
-                        );
-                      },
-                    ),
-                  ),
+                // Results already on screen stay there while the next request
+                // runs, so typing another character never blanks the list.
+                : results.hasValue
+                ? _Results(
+                    results: results.requireValue,
+                    category: state.category,
+                    query: state.query.trim(),
+                    onTap: (item, queue, index) {
+                      // The keyboard goes away before the push so it cannot
+                      // cover the screen being opened.
+                      FocusScope.of(context).unfocus();
+                      controller.recordClick(item);
+                      openMusicItem(
+                        context,
+                        ref,
+                        item,
+                        queue: queue,
+                        index: index,
+                        source: 'search',
+                      );
+                    },
+                  )
+                : results.hasError
+                ? _SearchError(
+                    error: results.error!,
+                    onRetry: controller.retry,
+                  )
+                : const Center(child: CircularProgressIndicator()),
           ),
         ],
       ),
     );
   }
+}
+
+/// A failed search leaves playback untouched; only this pane is affected.
+class _SearchError extends StatelessWidget {
+  const _SearchError({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(error.toString(), textAlign: TextAlign.center),
+          const SizedBox(height: 14),
+          OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+        ],
+      ),
+    ),
+  );
 }
 
 class _SearchLanding extends StatelessWidget {
@@ -152,114 +189,178 @@ class _SearchLanding extends StatelessWidget {
   final ValueChanged<String> onLanguage;
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 18, 16, 130),
-    children: [
-      if (recent.isNotEmpty) ...[
-        Text('Recent', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: Column(
-            children: [
-              for (final query in recent)
-                ListTile(
-                  leading: const Icon(Icons.history_rounded),
-                  title: Text(
-                    query,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  onTap: () => onRecent(query),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                    onPressed: () => onRemove(query),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 30),
-      ],
-      Text('Browse your sound', style: Theme.of(context).textTheme.titleLarge),
-      const SizedBox(height: 4),
-      const Text(
-        'Find music by language',
-        style: TextStyle(color: AppTheme.muted),
-      ),
-      const SizedBox(height: 14),
-      Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        children: [
-          for (var index = 0; index < languages.length; index++)
-            InkWell(
-              onTap: () => onLanguage(languages[index]),
-              borderRadius: BorderRadius.circular(24),
-              child: Container(
-                width: 150,
-                height: 86,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const [
-                    AppTheme.peach,
-                    AppTheme.blue,
-                    AppTheme.lilac,
-                    AppTheme.mint,
-                  ][index % 4],
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Icon(Icons.waves_rounded, size: 20),
-                    Text(
-                      languages[index],
-                      style: const TextStyle(fontWeight: FontWeight.w800),
+  Widget build(BuildContext context) {
+    final palette = AppPalette.of(context);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 130),
+      children: [
+        if (recent.isNotEmpty) ...[
+          Text('Recent', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: palette.panel,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Column(
+              children: [
+                for (final query in recent)
+                  ListTile(
+                    leading: const Icon(Icons.history_rounded),
+                    title: Text(
+                      query,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ],
+                    onTap: () => onRecent(query),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      onPressed: () => onRemove(query),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+        Text(
+          'Browse your sound',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 4),
+        Text('Find music by language', style: TextStyle(color: palette.muted)),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (var index = 0; index < languages.length; index++)
+              InkWell(
+                onTap: () => onLanguage(languages[index]),
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 150,
+                  height: 86,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: [
+                      palette.peach,
+                      palette.blue,
+                      palette.lilac,
+                      palette.mint,
+                    ][index % 4],
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Icon(Icons.waves_rounded, size: 20),
+                      Text(
+                        languages[index],
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-        ],
-      ),
-    ],
-  );
-}
-
-class _Results extends StatelessWidget {
-  const _Results({
-    required this.results,
-    required this.type,
-    required this.onTap,
-  });
-
-  final SearchResults results;
-  final String type;
-  final void Function(MusicItem item, List<MusicItem> queue, int index) onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    if (results.isEmpty) return const Center(child: Text('No results found'));
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 130),
-      children: [
-        if ((type == 'all' || type == 'songs') && results.songs.isNotEmpty)
-          _Group(title: 'Songs', items: results.songs, onTap: onTap),
-        if ((type == 'all' || type == 'artists') && results.artists.isNotEmpty)
-          _ArtistGroup(items: results.artists, onTap: onTap),
-        if ((type == 'all' || type == 'albums') && results.albums.isNotEmpty)
-          _Group(title: 'Albums', items: results.albums, onTap: onTap),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _Group extends StatelessWidget {
-  const _Group({required this.title, required this.items, required this.onTap});
+class _Results extends StatelessWidget {
+  const _Results({
+    required this.results,
+    required this.category,
+    required this.query,
+    required this.onTap,
+  });
+
+  final SearchResults results;
+  final SearchCategory category;
+  final String query;
+  final void Function(MusicItem item, List<MusicItem> queue, int index) onTap;
+
+  /// The items to show for one type on the current tab: everything on that
+  /// type's own tab, a short lead-in on the mixed tab, and nothing at all when
+  /// another tab is selected.
+  List<MusicItem> _section(MusicItemType type) {
+    if (category != SearchCategory.all && category.itemType != type) {
+      return const [];
+    }
+    final items = results.of(type);
+    if (category != SearchCategory.all) return items;
+    final limit = _allTabLimits[type]!;
+    return items.length <= limit ? items : items.sublist(0, limit);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final songs = _section(MusicItemType.song);
+    final artists = _section(MusicItemType.artist);
+    final albums = _section(MusicItemType.album);
+    final playlists = _section(MusicItemType.playlist);
+
+    if (results.isEmptyFor(category)) {
+      return Center(child: Text(_emptyMessage()));
+    }
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 130),
+      // Dragging the results dismisses the keyboard, which is what a user
+      // reaching for a result further down expects.
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        // An empty group contributes nothing at all, so a category with no
+        // matches never leaves a heading over blank space.
+        if (songs.isNotEmpty)
+          _TileGroup(title: 'Songs', items: songs, onTap: onTap),
+        if (artists.isNotEmpty) _ArtistGroup(items: artists, onTap: onTap),
+        if (albums.isNotEmpty)
+          _TileGroup(title: 'Albums', items: albums, onTap: onTap),
+        if (playlists.isNotEmpty)
+          _TileGroup(title: 'Playlists', items: playlists, onTap: onTap),
+      ],
+    );
+  }
+
+  String _emptyMessage() => switch (category) {
+    SearchCategory.all => 'No results found for "$query"',
+    SearchCategory.songs => 'No songs found for "$query"',
+    SearchCategory.artists => 'No artists found for "$query"',
+    SearchCategory.albums => 'No albums found for "$query"',
+    SearchCategory.playlists => 'No playlists found for "$query"',
+  };
+}
+
+/// The secondary line of a result card. Always names the content type, so a
+/// song is never mistaken for the album it belongs to.
+String _subtitleFor(MusicItem item) {
+  final label = item.typeLabel;
+  final parts = <String>[];
+  switch (item.type) {
+    case MusicItemType.song:
+    case MusicItemType.album:
+      if (item.artistName != null) parts.add(item.artistName!);
+      if (label != null) parts.add(label);
+    case MusicItemType.playlist:
+      if (label != null) parts.add(label);
+      final count = item.songCount;
+      if (count != null && count > 0) parts.add('$count songs');
+    case MusicItemType.artist:
+    case MusicItemType.unknown:
+      if (label != null) parts.add(label);
+  }
+  return parts.join(' • ');
+}
+
+class _TileGroup extends StatelessWidget {
+  const _TileGroup({
+    required this.title,
+    required this.items,
+    required this.onTap,
+  });
 
   final String title;
   final List<MusicItem> items;
@@ -274,7 +375,11 @@ class _Group extends StatelessWidget {
         child: Text(title, style: Theme.of(context).textTheme.titleLarge),
       ),
       for (var i = 0; i < items.length; i++)
-        MusicTile(item: items[i], onTap: () => onTap(items[i], items, i)),
+        MusicTile(
+          item: items[i],
+          subtitle: _subtitleFor(items[i]),
+          onTap: () => onTap(items[i], items, i),
+        ),
     ],
   );
 }
@@ -316,6 +421,15 @@ class _ArtistGroup extends StatelessWidget {
                     items[index].title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Artist',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppPalette.of(context).muted,
+                    ),
                   ),
                 ],
               ),
