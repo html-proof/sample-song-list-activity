@@ -72,7 +72,9 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
 
-    search_cache_ttl: int = 180
+    # Search responses are cached only long enough to absorb keystrokes;
+    # SearchService clamps this to 30-60 seconds.
+    search_cache_ttl: int = 45
     artist_cache_ttl: int = 1800
     album_cache_ttl: int = 1800
     trending_cache_ttl: int = 300

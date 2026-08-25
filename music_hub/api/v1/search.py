@@ -14,7 +14,7 @@ router = APIRouter(prefix="/search", tags=["search"])
 async def search(
     q: str = Query(min_length=1, max_length=300),
     type: Literal["all", "songs", "albums", "artists"] = "all",
-    limit: int = Query(default=10, ge=1, le=50),
+    limit: int = Query(default=20, ge=1, le=50),
     current: AuthenticatedUser = Depends(require_user),
     container: Container = Depends(get_container),
 ):

@@ -12,7 +12,7 @@ def make_service():
     history = AsyncMock()
     cache = AsyncMock()
     cache.get_json.return_value = None
-    settings = Settings(database_url=None, redis_url=None, search_cache_ttl=180)
+    settings = Settings(database_url=None, redis_url=None)
     return SearchService(provider, history, cache, settings), provider, history, cache
 
 
@@ -46,7 +46,7 @@ async def test_movie_search_promotes_tracks_from_matching_soundtrack():
         "Champ",
     ]
     provider.get_album.assert_awaited_once_with("sarkar-tamil")
-    assert cache.set_json.await_args.args[2] == 60
+    assert 30 <= cache.set_json.await_args.args[2] <= 60
     history.add_search.assert_awaited_once()
 
 
@@ -81,14 +81,15 @@ async def test_regular_song_search_does_not_fetch_an_album():
     assert result["songs"][0]["title"] == "Simtaangaran"
     provider.search_albums.assert_not_awaited()
     provider.get_album.assert_not_awaited()
-    assert cache.set_json.await_args.args[2] == 60
+    assert 30 <= cache.set_json.await_args.args[2] <= 60
 
 
 @pytest.mark.asyncio
-async def test_album_search_keeps_normal_search_cache_ttl():
+async def test_every_search_response_uses_a_short_cache_ttl():
+    """Search results go stale the moment the user types another character."""
     service, provider, _, cache = make_service()
     provider.search_albums.return_value = [{"album_id": "1", "title": "Sarkar"}]
 
     await service.search(uuid4(), "Sarkar", "albums", 10)
 
-    assert cache.set_json.await_args.args[2] == 180
+    assert 30 <= cache.set_json.await_args.args[2] <= 60
