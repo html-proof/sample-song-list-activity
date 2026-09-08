@@ -16,8 +16,9 @@ class AuthenticatedUser:
     identity: FirebaseIdentity
 
     @property
-    def id(self):
-        return self.record["id"]
+    def id(self) -> str:
+        # Supabase users table uses uid (Firebase UID) as primary key
+        return self.record.get("uid") or self.identity.uid
 
 
 def get_container(request: Request) -> Container:

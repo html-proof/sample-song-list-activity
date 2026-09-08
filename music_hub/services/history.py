@@ -1,5 +1,4 @@
-from uuid import UUID
-
+﻿
 from music_hub.cache import RedisCache
 from music_hub.repositories.history import HistoryRepository
 from music_hub.schemas.history import ListeningHistoryCreate, MusicEventCreate
@@ -17,7 +16,7 @@ class HistoryService:
         self.settings = settings
         self.cache = cache
 
-    async def record_listen(self, user_id: UUID, payload: ListeningHistoryCreate) -> dict:
+    async def record_listen(self, user_id: str, payload: ListeningHistoryCreate) -> dict:
         if self.settings is not None:
             privacy = await self.settings.get_group(user_id, "privacy")
             if not privacy["save_listening_history"]:
@@ -26,7 +25,7 @@ class HistoryService:
         await self._invalidate_recommendations(user_id)
         return result
 
-    async def record_event(self, user_id: UUID, payload: MusicEventCreate) -> dict:
+    async def record_event(self, user_id: str, payload: MusicEventCreate) -> dict:
         if self.settings is not None:
             privacy = await self.settings.get_group(user_id, "privacy")
             if not privacy["analytics_enabled"]:
@@ -35,12 +34,12 @@ class HistoryService:
         await self._invalidate_recommendations(user_id)
         return result
 
-    async def recent(self, user_id: UUID, limit: int) -> list[dict]:
+    async def recent(self, user_id: str, limit: int) -> list[dict]:
         return await self.repository.recent(user_id, limit)
 
-    async def continue_listening(self, user_id: UUID, limit: int) -> list[dict]:
+    async def continue_listening(self, user_id: str, limit: int) -> list[dict]:
         return await self.repository.continue_listening(user_id, limit)
 
-    async def _invalidate_recommendations(self, user_id: UUID) -> None:
+    async def _invalidate_recommendations(self, user_id: str) -> None:
         if self.cache is not None:
             await self.cache.delete_pattern(f"recommendations:{user_id}:*")

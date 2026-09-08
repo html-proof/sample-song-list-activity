@@ -1,7 +1,6 @@
-import asyncio
+﻿import asyncio
 import hashlib
 import re
-from uuid import UUID
 
 from music_hub.cache import RedisCache
 from music_hub.config import Settings
@@ -55,7 +54,7 @@ class SearchService:
         self.settings = settings
         self.settings_repository = settings_repository
 
-    async def _save_history(self, user_id: UUID) -> bool:
+    async def _save_history(self, user_id: str) -> bool:
         if self.settings_repository is None:
             return True
         privacy = await self.settings_repository.get_group(user_id, "privacy")
@@ -63,7 +62,7 @@ class SearchService:
 
     async def record_event(
         self,
-        user_id: UUID,
+        user_id: str,
         query: str,
         result_type: str | None,
         clicked_result_id: str | None,
@@ -97,7 +96,7 @@ class SearchService:
 
     # -- search -----------------------------------------------------------
 
-    async def search(self, user_id: UUID, query: str, result_type: str, limit: int) -> dict:
+    async def search(self, user_id: str, query: str, result_type: str, limit: int) -> dict:
         normalized = normalize(query)
         digest = hashlib.sha256(f"{result_type}:{normalized}:{limit}".encode()).hexdigest()
         cache_key = f"search:{digest}"
@@ -156,10 +155,10 @@ class SearchService:
         """Search responses are cached only long enough to absorb keystrokes."""
         return max(30, min(self.settings.search_cache_ttl, 60))
 
-    async def _invalidate_recommendations(self, user_id: UUID) -> None:
+    async def _invalidate_recommendations(self, user_id: str) -> None:
         await self.cache.delete_pattern(f"recommendations:{user_id}:*")
 
-    async def _apply_content_settings(self, user_id: UUID, result: dict) -> dict:
+    async def _apply_content_settings(self, user_id: str, result: dict) -> dict:
         if self.settings_repository is None:
             return result
         playback = await self.settings_repository.get_group(user_id, "playback")

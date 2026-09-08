@@ -1,5 +1,4 @@
-from uuid import UUID
-
+﻿
 from music_hub.cache import RedisCache
 from music_hub.providers.base import MusicProvider
 from music_hub.repositories.preferences import PreferenceRepository
@@ -24,14 +23,14 @@ class OnboardingService:
     async def artists(self, query: str, limit: int) -> list[dict]:
         return await self.provider.search_artists(query, limit)
 
-    async def complete(self, user_id: UUID, payload: OnboardingRequest) -> dict:
+    async def complete(self, user_id: str, payload: OnboardingRequest) -> dict:
         await self.preferences.replace_onboarding(user_id, payload.languages, payload.artists)
         await self._invalidate(user_id)
         return await self.preferences.get_onboarding(user_id)
 
     async def update_languages(
         self,
-        user_id: UUID,
+        user_id: str,
         payload: LanguagePreferencesUpdate,
     ) -> dict:
         await self.preferences.replace_languages(user_id, payload.languages)
@@ -40,13 +39,13 @@ class OnboardingService:
 
     async def update_artists(
         self,
-        user_id: UUID,
+        user_id: str,
         payload: ArtistPreferencesUpdate,
     ) -> dict:
         await self.preferences.replace_artists(user_id, payload.artists)
         await self._invalidate(user_id)
         return {"artists": await self.preferences.get_artists(user_id)}
 
-    async def _invalidate(self, user_id: UUID) -> None:
+    async def _invalidate(self, user_id: str) -> None:
         await self.cache.delete_pattern(f"recommendations:{user_id}:*")
         await self.cache.delete(f"seen:{user_id}")

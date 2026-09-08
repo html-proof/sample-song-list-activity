@@ -1,4 +1,4 @@
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from music_hub.cache import RedisCache
 from music_hub.config import Settings
@@ -28,7 +28,7 @@ class RecommendationEngine:
 
     async def recommend(
         self,
-        user_id: UUID,
+        user_id: str,
         cursor: str | None = None,
         limit: int = 25,
     ) -> RecommendationPage:

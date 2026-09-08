@@ -1,25 +1,48 @@
-from typing import Any
-from uuid import UUID
-
 from music_hub.database import Database
-from music_hub.schemas.settings import (
-    AppSettings,
-    DownloadSettings,
-    GeneralSettings,
-    NotificationSettings,
-    PlaybackSettings,
-    PrivacySettings,
-    RecommendationSettings,
-)
 
 
-_GROUPS = {
-    "general": ("general_settings", GeneralSettings),
-    "playback": ("playback_settings", PlaybackSettings),
-    "downloads": ("download_settings", DownloadSettings),
-    "recommendations": ("recommendation_settings", RecommendationSettings),
-    "notifications": ("notification_settings", NotificationSettings),
-    "privacy": ("privacy_settings", PrivacySettings),
+# Maps logical setting group → (user_profiles columns, enabled_flag)
+_PROFILE_SETTINGS = {
+    "playback": {
+        "streaming_quality_wifi": "high",
+        "streaming_quality_mobile": "normal",
+        "download_quality": "high",
+        "data_saver_enabled": False,
+        "autoplay_enabled": True,
+        "equalizer_preset": "Default",
+    },
+    "notifications": {
+        "push_notifications_enabled": True,
+        "pulse_followed_releases_enabled": True,
+        "pulse_selected_releases_enabled": True,
+        "pulse_trending_enabled": True,
+        "pulse_recommendations_enabled": True,
+    },
+    "privacy": {
+        "explicit_content_enabled": False,
+        "save_listening_history": True,
+        "analytics_enabled": True,
+    },
+    "general": {
+        "display_name": None,
+    },
+}
+
+_ALL_DEFAULTS = {
+    "streaming_quality_wifi": "high",
+    "streaming_quality_mobile": "normal",
+    "download_quality": "high",
+    "data_saver_enabled": False,
+    "autoplay_enabled": True,
+    "equalizer_preset": "Default",
+    "push_notifications_enabled": True,
+    "pulse_followed_releases_enabled": True,
+    "pulse_selected_releases_enabled": True,
+    "pulse_trending_enabled": True,
+    "pulse_recommendations_enabled": True,
+    "explicit_content_enabled": False,
+    "save_listening_history": True,
+    "analytics_enabled": True,
 }
 
 
@@ -27,130 +50,87 @@ class SettingsRepository:
     def __init__(self, database: Database) -> None:
         self.database = database
 
-    async def get_all(self, user_id: UUID) -> AppSettings:
-        values = {
-            group: await self.get_group(user_id, group)
-            for group in _GROUPS
-        }
-        return AppSettings(**values)
-
-    async def get_group(self, user_id: UUID, group: str) -> dict[str, Any]:
-        table, model = _GROUPS[group]
+    async def _get_profile(self, user_id: str) -> dict:
         row = await self.database.fetchrow(
-            f"SELECT * FROM {table} WHERE user_id = $1",
+            "SELECT * FROM user_profiles WHERE uid = $1", user_id
+        )
+        return dict(row) if row else {}
+
+    async def _ensure_profile(self, user_id: str) -> None:
+        await self.database.execute(
+            "INSERT INTO user_profiles (uid) VALUES ($1) ON CONFLICT (uid) DO NOTHING",
             user_id,
         )
-        if row is None:
-            await self.database.execute(
-                f"INSERT INTO {table} (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
-                user_id,
-            )
-            return model().model_dump()
-        return model.model_validate(dict(row)).model_dump()
 
-    async def update_group(
-        self,
-        user_id: UUID,
-        group: str,
-        values: dict[str, Any],
-    ) -> dict[str, Any]:
-        if not values:
-            return await self.get_group(user_id, group)
-        table, model = _GROUPS[group]
-        allowed = set(model.model_fields)
+    async def get_all(self, user_id: str) -> dict:
+        profile = await self._get_profile(user_id)
+        return {
+            group: self._extract_group(profile, group)
+            for group in _PROFILE_SETTINGS
+        }
+
+    async def get_group(self, user_id: str, group: str) -> dict:
+        profile = await self._get_profile(user_id)
+        return self._extract_group(profile, group)
+
+    def _extract_group(self, profile: dict, group: str) -> dict:
+        defaults = _PROFILE_SETTINGS.get(group, {})
+        return {col: profile.get(col, default) for col, default in defaults.items()}
+
+    async def update_group(self, user_id: str, group: str, values: dict) -> dict:
+        allowed = set(_PROFILE_SETTINGS.get(group, {}).keys())
         invalid = set(values) - allowed
         if invalid:
             raise ValueError(f"Unsupported {group} settings: {', '.join(sorted(invalid))}")
+        if not values:
+            return await self.get_group(user_id, group)
+
+        await self._ensure_profile(user_id)
         columns = list(values)
-        insert_columns = ", ".join(["user_id", *columns])
-        placeholders = ", ".join(f"${index}" for index in range(1, len(columns) + 2))
-        assignments = ", ".join(f"{column} = EXCLUDED.{column}" for column in columns)
-        row = await self.database.fetchrow(
-            f"""
-            INSERT INTO {table} ({insert_columns}) VALUES ({placeholders})
-            ON CONFLICT (user_id) DO UPDATE
-            SET {assignments}, updated_at = now()
-            RETURNING *
-            """,
+        set_clauses = ", ".join(f"{col} = ${i+2}" for i, col in enumerate(columns))
+        await self.database.execute(
+            f"UPDATE user_profiles SET {set_clauses}, updated_at = now() WHERE uid = $1",
             user_id,
-            *(values[column] for column in columns),
+            *(values[col] for col in columns),
         )
-        return model.model_validate(dict(row)).model_dump() if row else model().model_dump()
+        return await self.get_group(user_id, group)
 
-    async def reset(self, user_id: UUID) -> None:
-        async with self.database.transaction() as connection:
-            for table, _ in _GROUPS.values():
-                await connection.execute(f"DELETE FROM {table} WHERE user_id = $1", user_id)
+    async def reset(self, user_id: str) -> None:
+        columns = [col for group in _PROFILE_SETTINGS.values() for col in group if col in _ALL_DEFAULTS]
+        if not columns:
+            return
+        set_clauses = ", ".join(
+            f"{col} = {repr(_ALL_DEFAULTS[col])}" if isinstance(_ALL_DEFAULTS[col], str)
+            else f"{col} = {str(_ALL_DEFAULTS[col]).lower()}"
+            for col in columns
+        )
+        await self.database.execute(
+            f"UPDATE user_profiles SET {set_clauses}, updated_at = now() WHERE uid = $1",
+            user_id,
+        )
 
-    async def clear_history(self, user_id: UUID, kind: str) -> None:
+    async def clear_history(self, user_id: str, kind: str) -> None:
         async with self.database.transaction() as connection:
             if kind == "listening":
-                await connection.execute(
-                    "DELETE FROM listening_history WHERE user_id = $1",
-                    user_id,
-                )
-                await connection.execute(
-                    "DELETE FROM music_events WHERE user_id = $1",
-                    user_id,
-                )
-                await connection.execute(
-                    """
-                    DELETE FROM user_interest_signals
-                    WHERE user_id = $1
-                      AND source IN ('listening_history', 'music_event')
-                    """,
-                    user_id,
-                )
+                await connection.execute("DELETE FROM user_history WHERE uid = $1", user_id)
+                await connection.execute("DELETE FROM playback_history WHERE user_id = $1", user_id)
+                await connection.execute("DELETE FROM user_events WHERE user_id = $1", user_id)
             else:
-                await connection.execute(
-                    "DELETE FROM search_history WHERE user_id = $1",
-                    user_id,
-                )
-                await connection.execute(
-                    """
-                    DELETE FROM user_interest_signals
-                    WHERE user_id = $1
-                      AND source IN ('search_history', 'search_click')
-                    """,
-                    user_id,
-                )
+                await connection.execute("DELETE FROM recent_searches WHERE uid = $1", user_id)
 
-    async def reset_recommendations(self, user_id: UUID) -> None:
-        async with self.database.transaction() as connection:
-            await connection.execute(
-                """
-                INSERT INTO recommendation_profiles (
-                    user_id, profile, model_version, generated_at,
-                    learning_reset_at, expires_at
-                ) VALUES ($1, '{}'::jsonb, 'weighted-v2', now(), now(), NULL)
-                ON CONFLICT (user_id) DO UPDATE
-                SET profile = '{}'::jsonb,
-                    model_version = 'weighted-v2',
-                    generated_at = now(),
-                    learning_reset_at = now(),
-                    expires_at = NULL
-                """,
-                user_id,
-            )
-            await connection.execute(
-                """
-                DELETE FROM user_interest_signals
-                WHERE user_id = $1
-                  AND source IN (
-                    'listening_history', 'music_event',
-                    'search_history', 'search_click'
-                  )
-                """,
-                user_id,
-            )
-
-    async def set_device_notifications(self, user_id: UUID, enabled: bool) -> None:
+    async def reset_recommendations(self, user_id: str) -> None:
         await self.database.execute(
             """
-            UPDATE user_devices
-            SET notifications_enabled = $2, last_active_at = now()
-            WHERE user_id = $1
+            INSERT INTO user_taste_profiles (user_id, languages, artists, genres, algorithm_version, updated_at)
+            VALUES ($1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, '1.0', now())
+            ON CONFLICT (user_id) DO UPDATE
+            SET languages = '[]'::jsonb, artists = '[]'::jsonb, genres = '[]'::jsonb, updated_at = now()
             """,
             user_id,
-            enabled,
+        )
+
+    async def set_device_notifications(self, user_id: str, enabled: bool) -> None:
+        await self.database.execute(
+            "UPDATE device_tokens SET last_seen_at = now() WHERE uid = $1",
+            user_id,
         )

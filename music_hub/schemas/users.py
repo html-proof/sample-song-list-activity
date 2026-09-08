@@ -1,18 +1,25 @@
 from datetime import datetime
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class UserResponse(BaseModel):
-    id: UUID
+    id: str  # Firebase UID (Supabase uid column)
     display_name: str | None = None
     email: str | None = None
     photo_url: str | None = None
     onboarding_completed: bool = False
     created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @classmethod
+    def from_record(cls, record: dict) -> "UserResponse":
+        # Supabase users table uses 'uid' as PK, not 'id'
+        data = dict(record)
+        if "id" not in data and "uid" in data:
+            data["id"] = data["uid"]
+        return cls.model_validate(data)
 
 
 class LanguagePreference(BaseModel):

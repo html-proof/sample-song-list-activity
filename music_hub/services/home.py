@@ -1,5 +1,4 @@
-import asyncio
-from uuid import UUID
+﻿import asyncio
 
 from music_hub.errors import MusicHubError
 from music_hub.providers.base import MusicProvider
@@ -28,7 +27,7 @@ class HomeService:
         self.preferences = preferences
         self.settings = settings
 
-    async def build(self, user_id: UUID, cursor: str | None = None) -> HomeResponse:
+    async def build(self, user_id: str, cursor: str | None = None) -> HomeResponse:
         languages = await self.preferences.get_languages(user_id)
         language_names = [item["language_code"] for item in languages[:3]] or ["Hindi"]
         artists = await self.preferences.get_artists(user_id)
