@@ -169,22 +169,12 @@ class _UserScopedRecommendationDatabase:
         profile = self.profiles[user_id]
         if "FROM user_languages" in query:
             return [{"language_code": profile["language"], "priority": 10}]
-        if "FROM user_artists" in query:
+        if "FROM user_selected_artists" in query:
             return [
                 {
                     "provider_artist_id": profile["artist"],
                     "artist_name": profile["artist"],
                     "preference_score": 1.0,
-                }
-            ]
-        if "FROM user_interest_signals" in query:
-            return [
-                {
-                    "entity_type": "artist",
-                    "entity_id": profile["artist"],
-                    "score": 10.0,
-                    "occurrences": 1,
-                    "last_seen_at": None,
                 }
             ]
         return []
