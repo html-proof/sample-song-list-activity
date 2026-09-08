@@ -1,4 +1,5 @@
-﻿
+﻿from uuid import UUID
+
 from music_hub.cache import RedisCache
 from music_hub.repositories.playlists import PlaylistRepository
 from music_hub.schemas.playlists import PlaylistCreate, PlaylistTrackCreate, PlaylistUpdate
