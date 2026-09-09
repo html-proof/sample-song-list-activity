@@ -1,41 +1,41 @@
 {
   "project_info": {
-    "project_number": "404503869615",
-    "project_id": "personal-songs",
-    "storage_bucket": "personal-songs.firebasestorage.app"
+    "project_number": "668570569113",
+    "project_id": "music-hub-d7489",
+    "storage_bucket": "music-hub-d7489.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:404503869615:android:ae7494d0fe31e807dc7c5a",
+        "mobilesdk_app_id": "1:668570569113:android:cd085423f982d547bceb08",
         "android_client_info": {
           "package_name": "com.musichub.app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "404503869615-j7d443ua30bjtgjpgkbcf51vqbh2aqil.apps.googleusercontent.com",
+          "client_id": "668570569113-9c1fqjln7ke4r981brh6js9kdp9rjmuc.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.musichub.app",
-            "certificate_hash": "458901b726cf86eedc344fd2a5d81db73177db87"
+            "certificate_hash": "445066fb3c44d4400bdd0f2e8c60bf9ece2f3b73"
           }
         },
         {
-          "client_id": "404503869615-e2fsqe0iq9hef237nuoa3binjr4ol5jm.apps.googleusercontent.com",
+          "client_id": "668570569113-itb66bm22jlh693nogqhebiqu20tod8p.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBKWWqGjEr4KZUIqgCW-uXnBdx-Z7wo-Qk"
+          "current_key": "AIzaSyCNsEjYqDhlQcckNY2IsWD2R52AP5fOE_M"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "404503869615-e2fsqe0iq9hef237nuoa3binjr4ol5jm.apps.googleusercontent.com",
+              "client_id": "668570569113-itb66bm22jlh693nogqhebiqu20tod8p.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

@@ -1,0 +1,70 @@
+name: Keep Render Service Awake
+
+on:
+  schedule:
+    # Runs every 5 minutes to keep Render backend continuously warm and active
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      service_url:
+        description: 'Render Service URL to ping (optional, overrides default)'
+        required: false
+        default: ''
+
+jobs:
+  ping-render:
+    name: Ping Render Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Send Keep-Alive Ping
+        env:
+          CUSTOM_URL: ${{ github.event.inputs.service_url }}
+          SECRET_URL: ${{ secrets.RENDER_SERVICE_URL }}
+          VAR_URL: ${{ vars.RENDER_SERVICE_URL }}
+          DEFAULT_URL: "https://turks-young.onrender.com"
+        run: |
+          TARGET_URL="${CUSTOM_URL:-${SECRET_URL:-${VAR_URL:-$DEFAULT_URL}}}"
+          TARGET_URL="${TARGET_URL%/}"
+          
+          echo "====================================================="
+          echo "  Render Keep-Alive Ping Trigger"
+          echo "  Timestamp : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "  Target    : ${TARGET_URL}"
+          echo "====================================================="
+          
+          HEALTH_URL="${TARGET_URL}/health"
+          echo "Pinging ${HEALTH_URL}..."
+          
+          HTTP_RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}\nTIME_TOTAL:%{time_total}s\n" \
+            --connect-timeout 20 \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 5 \
+            -A "GitHub-Actions-Render-KeepAlive/1.0" \
+            "${HEALTH_URL}")
+          
+          STATUS_CODE=$(echo "$HTTP_RESPONSE" | grep "HTTP_STATUS" | cut -d':' -f2)
+          TIME_TAKEN=$(echo "$HTTP_RESPONSE" | grep "TIME_TOTAL" | cut -d':' -f2)
+          BODY=$(echo "$HTTP_RESPONSE" | grep -v "HTTP_STATUS" | grep -v "TIME_TOTAL")
+          
+          echo "Response Body : $BODY"
+          echo "HTTP Status   : $STATUS_CODE"
+          echo "Response Time : $TIME_TAKEN"
+          
+          if [ "$STATUS_CODE" -ge 200 ] && [ "$STATUS_CODE" -lt 400 ]; then
+            echo "SUCCESS: Render service is alive and healthy."
+            exit 0
+          else
+            echo "WARNING: Received status code ${STATUS_CODE}, retrying root endpoint..."
+            FALLBACK_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${TARGET_URL}/")
+            echo "Root endpoint returned status: ${FALLBACK_RESPONSE}"
+            if [ "$FALLBACK_RESPONSE" -ge 200 ] && [ "$FALLBACK_RESPONSE" -lt 500 ]; then
+              echo "SUCCESS: Root endpoint reachable."
+              exit 0
+            else
+              echo "ERROR: Service unreachable or returned error status."
+              exit 1
+            fi
+          fi

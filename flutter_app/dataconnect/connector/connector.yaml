@@ -1,0 +1,5 @@
+connectorId: "soundwaves-connector"
+generate:
+  dartSdk:
+    outputDir: "../../lib/generated/dataconnect"
+    package: "soundwaves"

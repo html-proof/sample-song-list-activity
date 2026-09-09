@@ -1,0 +1,240 @@
+# =============================================================================
+#  Soundwaves — Firebase Data Connect Queries
+# =============================================================================
+
+
+# ─── User preference queries ──────────────────────────────────────────────────
+
+query GetUserLanguages($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  userLanguages(where: { userId: { eq: $userId } }, orderBy: [{ rank: ASC }]) {
+    id
+    language
+    rank
+  }
+}
+
+query GetUserFavoriteArtists($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  userFavoriteArtists(where: { userId: { eq: $userId } }, orderBy: [{ followedAt: DESC }]) {
+    id
+    followedAt
+    artist {
+      id
+      name
+      slug
+      imageUrl
+      isVerified
+    }
+  }
+}
+
+query GetUserFavoriteGenres($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  userFavoriteGenres(where: { userId: { eq: $userId } }, orderBy: [{ rank: ASC }]) {
+    id
+    rank
+    genre {
+      id
+      name
+      slug
+      emoji
+    }
+  }
+}
+
+query GetUserFavoriteSongs($userId: String!, $limit: Int) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  userFavoriteSongs(
+    where: { userId: { eq: $userId } }
+    orderBy: [{ likedAt: DESC }]
+    limit: $limit
+  ) {
+    id
+    likedAt
+    song {
+      id
+      externalId
+      title
+      language
+      coverUrl
+      streamUrl
+      durationSeconds
+      popularity
+      album {
+        title
+        coverUrl
+      }
+    }
+  }
+}
+
+
+# ─── Play history ─────────────────────────────────────────────────────────────
+
+query GetRecentPlays($userId: String!, $limit: Int) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  playHistories(
+    where: { userId: { eq: $userId } }
+    orderBy: [{ playedAt: DESC }]
+    limit: $limit
+  ) {
+    id
+    playedAt
+    completionPct
+    listenedSeconds
+    skipped
+    source
+    song {
+      id
+      externalId
+      title
+      language
+      coverUrl
+      streamUrl
+      durationSeconds
+    }
+  }
+}
+
+
+# ─── Artist queries ───────────────────────────────────────────────────────────
+
+query GetArtistBySlug($slug: String!) @auth(level: PUBLIC, insecureReason: "Artist catalog is publicly readable") {
+  artists(where: { slug: { eq: $slug } }, limit: 1) {
+    id
+    name
+    slug
+    bio
+    imageUrl
+    country
+    isVerified
+    followerCount
+  }
+}
+
+query SearchArtists($nameQuery: String!, $limit: Int) @auth(level: PUBLIC, insecureReason: "Artist catalog is publicly readable") {
+  artists(
+    where: { name: { contains: $nameQuery } }
+    orderBy: [{ followerCount: DESC }]
+    limit: $limit
+  ) {
+    id
+    name
+    slug
+    imageUrl
+    isVerified
+    followerCount
+  }
+}
+
+
+# ─── Genre queries ────────────────────────────────────────────────────────────
+
+query ListGenres @auth(level: PUBLIC, insecureReason: "Genre catalog is publicly readable") {
+  genres(orderBy: [{ name: ASC }]) {
+    id
+    name
+    slug
+    emoji
+  }
+}
+
+
+# ─── Song queries ─────────────────────────────────────────────────────────────
+
+query GetSongByExternalId($externalId: String!) @auth(level: PUBLIC, insecureReason: "Song catalog is publicly readable") {
+  songs(where: { externalId: { eq: $externalId } }, limit: 1) {
+    id
+    externalId
+    title
+    language
+    coverUrl
+    streamUrl
+    previewUrl
+    durationSeconds
+    playCount
+    popularity
+    album {
+      title
+      coverUrl
+      releaseYear
+    }
+  }
+}
+
+query SearchSongs($query: String!, $limit: Int) @auth(level: PUBLIC, insecureReason: "Song catalog is publicly readable") {
+  songs(
+    where: { title: { contains: $query } }
+    orderBy: [{ popularity: DESC }]
+    limit: $limit
+  ) {
+    id
+    externalId
+    title
+    language
+    coverUrl
+    streamUrl
+    durationSeconds
+    playCount
+    popularity
+  }
+}
+
+query GetTopSongs($language: String!, $limit: Int) @auth(level: PUBLIC, insecureReason: "Song catalog is publicly readable") {
+  songs(
+    where: { language: { eq: $language } }
+    orderBy: [{ popularity: DESC }, { playCount: DESC }]
+    limit: $limit
+  ) {
+    id
+    externalId
+    title
+    language
+    coverUrl
+    streamUrl
+    durationSeconds
+    playCount
+    popularity
+    album {
+      title
+      coverUrl
+    }
+  }
+}
+
+
+# ─── Precomputed recommendation cache ────────────────────────────────────────
+
+query GetCachedRecommendations($userId: String!, $limit: Int) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  recommendationCaches(
+    where: { userId: { eq: $userId } }
+    orderBy: [{ score: DESC }]
+    limit: $limit
+  ) {
+    score
+    reasonArtist
+    reasonGenre
+    reasonLanguage
+    reasonHistory
+    reasonTrending
+    generatedAt
+    song {
+      id
+      externalId
+      title
+      language
+      coverUrl
+      streamUrl
+      durationSeconds
+      popularity
+    }
+  }
+}
+
+
+# ─── Artist follow status ─────────────────────────────────────────────────────
+
+query IsFollowingArtist($userId: String!, $artistId: UUID!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side by the FastAPI backend before calling") {
+  artistFollows(
+    where: { userId: { eq: $userId }, artist: { id: { eq: $artistId } } }
+    limit: 1
+  ) {
+    id
+  }
+}

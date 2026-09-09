@@ -1,0 +1,12 @@
+{
+  "$schema": "../cloudflare-worker/node_modules/wrangler/config-schema.json",
+  "name": "music-hub-app",
+  "compatibility_date": "2026-08-26",
+  "assets": {
+    "directory": "./build/web",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

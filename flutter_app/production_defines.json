@@ -1,0 +1,10 @@
+{
+  "API_BASE_URL": "https://soundwaves-cdn.imeseban.workers.dev",
+  "FIREBASE_API_KEY": "AIzaSyDKRNnrhEjbqKn5HUfg47Q5yuxYroiTbFM",
+  "FIREBASE_APP_ID": "1:404503869615:web:9ffbcef5d5c638c8dc7c5a",
+  "FIREBASE_PROJECT_ID": "personal-songs",
+  "FIREBASE_MESSAGING_SENDER_ID": "404503869615",
+  "FIREBASE_AUTH_DOMAIN": "personal-songs.firebaseapp.com",
+  "FIREBASE_STORAGE_BUCKET": "personal-songs.firebasestorage.app",
+  "FIREBASE_MEASUREMENT_ID": "G-1FLJRF9P38"
+}

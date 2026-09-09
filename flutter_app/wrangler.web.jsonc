@@ -1,0 +1,20 @@
+{
+  "$schema": "../cloudflare-worker/node_modules/wrangler/config-schema.json",
+  "name": "music-hub-web",
+  "main": "web_worker.js",
+  "compatibility_date": "2026-08-26",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./build/web",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  },
+  "vars": {
+    "BACKEND_URL": "https://turks-young.onrender.com",
+    "ALLOWED_ORIGINS": "*"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

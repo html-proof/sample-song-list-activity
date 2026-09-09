@@ -1,0 +1,196 @@
+# =============================================================================
+#  Soundwaves — Firebase Data Connect Schema
+#  Generated with Gemini for Firebase · PostgreSQL backend
+# =============================================================================
+#
+#  Entity-relationship overview
+#  ─────────────────────────────
+#
+#   Artist ──< SongArtist >── Song ──< SongGenre >── Genre
+#                              │
+#                              └──< Album
+#
+#   User ──< UserLanguage
+#        ──< UserFavoriteArtist
+#        ──< UserFavoriteGenre
+#        ──< UserFavoriteSong
+#        ──< PlayHistory
+#        ──< ArtistFollow
+#
+# =============================================================================
+
+
+# ─── Artists ─────────────────────────────────────────────────────────────────
+
+type Artist @table(name: "artists") {
+  id:           UUID!    @default(expr: "uuidV4()")
+  externalId:   String   @col(name: "external_id") @unique     # upstream artist ID
+  name:         String!
+  slug:         String!  @unique                              # URL-safe name
+  bio:          String
+  imageUrl:     String   @col(name: "image_url")
+  country:      String
+  isVerified:   Boolean! @col(name: "is_verified") @default(expr: "false")
+  followerCount: Int!    @col(name: "follower_count") @default(expr: "0")
+  createdAt:    Timestamp! @col(name: "created_at") @default(expr: "request.time")
+}
+
+
+# ─── Genres ──────────────────────────────────────────────────────────────────
+
+type Genre @table(name: "genres") {
+  id:       UUID!   @default(expr: "uuidV4()")
+  name:     String! @unique                                   # "Hip-Hop", "Classical"
+  slug:     String! @unique                                   # "hip-hop", "classical"
+  emoji:    String                                            # "🎧"
+  parentId: UUID    @col(name: "parent_id")                  # genre hierarchy (optional)
+}
+
+
+# ─── Albums ──────────────────────────────────────────────────────────────────
+
+type Album @table(name: "albums") {
+  id:           UUID!    @default(expr: "uuidV4()")
+  externalId:   String   @col(name: "external_id")
+  title:        String!
+  slug:         String!  @unique
+  artist:       Artist!                                       # primary album artist
+  releaseYear:  Int      @col(name: "release_year")
+  coverUrl:     String   @col(name: "cover_url")
+  language:     String                                        # primary language
+  trackCount:   Int!     @col(name: "track_count") @default(expr: "0")
+  createdAt:    Timestamp! @col(name: "created_at") @default(expr: "request.time")
+}
+
+
+# ─── Songs ───────────────────────────────────────────────────────────────────
+
+type Song @table(name: "songs") {
+  id:              UUID!    @default(expr: "uuidV4()")
+  externalId:      String   @col(name: "external_id") @unique  # upstream seokey / track_id
+  title:           String!
+  slug:            String!  @unique
+  album:           Album
+  language:        String!
+  durationSeconds: Int!     @col(name: "duration_seconds")
+  coverUrl:        String!  @col(name: "cover_url")
+  streamUrl:       String!  @col(name: "stream_url")
+  previewUrl:      String   @col(name: "preview_url")
+  releaseYear:     Int      @col(name: "release_year")
+  trackNumber:     Int      @col(name: "track_number")
+  isExplicit:      Boolean! @col(name: "is_explicit") @default(expr: "false")
+  playCount:       Int!     @col(name: "play_count") @default(expr: "0")
+  popularity:      Float!   @default(expr: "0")               # 0.0–1.0 normalised score
+  createdAt:       Timestamp! @col(name: "created_at") @default(expr: "request.time")
+  updatedAt:       Timestamp! @col(name: "updated_at") @default(expr: "request.time")
+}
+
+
+# ─── Junction: Song ↔ Artist (many-to-many) ───────────────────────────────────
+
+type SongArtist @table(name: "song_artists", key: ["song", "artist"]) {
+  song:         Song!
+  artist:       Artist!
+  role:         String! @default(expr: "'primary'")           # "primary" | "featured" | "producer"
+  displayOrder: Int!    @col(name: "display_order") @default(expr: "0")
+}
+
+
+# ─── Junction: Song ↔ Genre (many-to-many) ────────────────────────────────────
+
+type SongGenre @table(name: "song_genres", key: ["song", "genre"]) {
+  song:   Song!
+  genre:  Genre!
+  weight: Float! @default(expr: "1.0")                       # genre confidence 0–1
+}
+
+
+# =============================================================================
+#  User preference tables
+# =============================================================================
+
+# ─── User preferred languages ────────────────────────────────────────────────
+
+type UserLanguage @table(name: "user_languages") {
+  id:       UUID!   @default(expr: "uuidV4()")
+  userId:   String! @col(name: "user_id")
+  language: String!
+  rank:     Int!    @default(expr: "0")                      # 0 = top preference
+}
+
+
+# ─── User favourite artists (explicit follow) ─────────────────────────────────
+
+type UserFavoriteArtist @table(name: "user_favorite_artists") {
+  id:        UUID!    @default(expr: "uuidV4()")
+  userId:    String!  @col(name: "user_id")
+  artist:    Artist!
+  followedAt: Timestamp! @col(name: "followed_at") @default(expr: "request.time")
+}
+
+
+# ─── User favourite genres (explicit pick) ────────────────────────────────────
+
+type UserFavoriteGenre @table(name: "user_favorite_genres") {
+  id:       UUID!    @default(expr: "uuidV4()")
+  userId:   String!  @col(name: "user_id")
+  genre:    Genre!
+  rank:     Int!     @default(expr: "0")
+  addedAt:  Timestamp! @col(name: "added_at") @default(expr: "request.time")
+}
+
+
+# ─── User liked songs ────────────────────────────────────────────────────────
+
+type UserFavoriteSong @table(name: "user_favorite_songs") {
+  id:         UUID!    @default(expr: "uuidV4()")
+  userId:     String!  @col(name: "user_id")
+  song:       Song!
+  likedAt:    Timestamp! @col(name: "liked_at") @default(expr: "request.time")
+}
+
+
+# ─── Detailed play history ────────────────────────────────────────────────────
+
+type PlayHistory @table(name: "play_history") {
+  id:               UUID!    @default(expr: "uuidV4()")
+  userId:           String!  @col(name: "user_id")
+  song:             Song!
+  playedAt:         Timestamp! @col(name: "played_at") @default(expr: "request.time")
+  # 0–100: percentage of track that was listened to
+  completionPct:    Int!     @col(name: "completion_pct") @default(expr: "0")
+  # seconds actually listened before skip/pause
+  listenedSeconds:  Int!     @col(name: "listened_seconds") @default(expr: "0")
+  source:           String!  @default(expr: "'app'")         # "app" | "recommendation" | "search"
+  device:           String   @default(expr: "'mobile'")      # "mobile" | "web"
+  skipped:          Boolean! @default(expr: "false")         # true = skipped before 30 s
+}
+
+
+# ─── Artist follow feed ────────────────────────────────────────────────────────
+
+type ArtistFollow @table(name: "artist_follows") {
+  id:         UUID!    @default(expr: "uuidV4()")
+  userId:     String!  @col(name: "user_id")
+  artist:     Artist!
+  followedAt: Timestamp! @col(name: "followed_at") @default(expr: "request.time")
+}
+
+
+# =============================================================================
+#  Recommendation cache  (pre-scored, refreshed by background job)
+# =============================================================================
+
+type RecommendationCache @table(name: "recommendation_cache") {
+  id:          UUID!    @default(expr: "uuidV4()")
+  userId:      String!  @col(name: "user_id")
+  song:        Song!
+  score:       Float!                                        # composite recommendation score
+  # Reasons breakdown (stored for "why this?" UI)
+  reasonArtist:   Float! @col(name: "reason_artist")   @default(expr: "0")
+  reasonGenre:    Float! @col(name: "reason_genre")    @default(expr: "0")
+  reasonLanguage: Float! @col(name: "reason_language") @default(expr: "0")
+  reasonHistory:  Float! @col(name: "reason_history")  @default(expr: "0")
+  reasonTrending: Float! @col(name: "reason_trending") @default(expr: "0")
+  generatedAt: Timestamp! @col(name: "generated_at") @default(expr: "request.time")
+}

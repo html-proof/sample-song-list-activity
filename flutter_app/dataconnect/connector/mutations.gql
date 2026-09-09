@@ -1,0 +1,298 @@
+# =============================================================================
+#  Soundwaves — Firebase Data Connect Mutations
+# =============================================================================
+
+# Insecure reason used on admin catalog mutations — these are called only by
+# the FastAPI backend service account, never directly by Flutter clients.
+# The service account token bypasses @auth checks at the REST API level.
+
+
+# ─── Artist catalog ───────────────────────────────────────────────────────────
+
+mutation UpsertArtist(
+  $externalId: String!
+  $name: String!
+  $slug: String!
+  $bio: String
+  $imageUrl: String
+  $country: String
+  $isVerified: Boolean
+  $followerCount: Int
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Admin-only catalog mutation, called only by service account") {
+  artist_insert(data: {
+    externalId:    $externalId
+    name:          $name
+    slug:          $slug
+    bio:           $bio
+    imageUrl:      $imageUrl
+    country:       $country
+    isVerified:    $isVerified
+    followerCount: $followerCount
+  })
+}
+
+
+# ─── Genre catalog ────────────────────────────────────────────────────────────
+
+mutation UpsertGenre(
+  $name: String!
+  $slug: String!
+  $emoji: String
+  $parentId: UUID
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Admin-only catalog mutation, called only by service account") {
+  genre_insert(data: {
+    name:     $name
+    slug:     $slug
+    emoji:    $emoji
+    parentId: $parentId
+  })
+}
+
+
+# ─── Album catalog ────────────────────────────────────────────────────────────
+
+mutation UpsertAlbum(
+  $externalId: String!
+  $title: String!
+  $slug: String!
+  $artistId: UUID!
+  $releaseYear: Int
+  $coverUrl: String
+  $language: String
+  $trackCount: Int
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Admin-only catalog mutation, called only by service account") {
+  album_insert(data: {
+    externalId:  $externalId
+    title:       $title
+    slug:        $slug
+    artist:      { id: $artistId }
+    releaseYear: $releaseYear
+    coverUrl:    $coverUrl
+    language:    $language
+    trackCount:  $trackCount
+  })
+}
+
+
+# ─── Song catalog ─────────────────────────────────────────────────────────────
+
+mutation UpsertSong(
+  $externalId: String!
+  $title: String!
+  $slug: String!
+  $albumId: UUID
+  $language: String!
+  $durationSeconds: Int!
+  $coverUrl: String!
+  $streamUrl: String!
+  $previewUrl: String
+  $releaseYear: Int
+  $trackNumber: Int
+  $isExplicit: Boolean
+  $popularity: Float
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Admin-only catalog mutation, called only by service account") {
+  song_insert(data: {
+    externalId:      $externalId
+    title:           $title
+    slug:            $slug
+    album:           { id: $albumId }
+    language:        $language
+    durationSeconds: $durationSeconds
+    coverUrl:        $coverUrl
+    streamUrl:       $streamUrl
+    previewUrl:      $previewUrl
+    releaseYear:     $releaseYear
+    trackNumber:     $trackNumber
+    isExplicit:      $isExplicit
+    popularity:      $popularity
+  })
+}
+
+mutation LinkSongArtist(
+  $songId: UUID!
+  $artistId: UUID!
+  $role: String
+  $displayOrder: Int
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Admin-only catalog mutation, called only by service account") {
+  songArtist_upsert(data: {
+    song:         { id: $songId }
+    artist:       { id: $artistId }
+    role:         $role
+    displayOrder: $displayOrder
+  })
+}
+
+mutation LinkSongGenre(
+  $songId: UUID!
+  $genreId: UUID!
+  $weight: Float
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Admin-only catalog mutation, called only by service account") {
+  songGenre_upsert(data: {
+    song:   { id: $songId }
+    genre:  { id: $genreId }
+    weight: $weight
+  })
+}
+
+
+# ─── User language preferences ────────────────────────────────────────────────
+
+mutation AddUserLanguage(
+  $userId: String!
+  $language: String!
+  $rank: Int!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userLanguage_insert(data: {
+    userId:   $userId
+    language: $language
+    rank:     $rank
+  })
+}
+
+mutation DeleteUserLanguages($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userLanguage_deleteMany(where: { userId: { eq: $userId } })
+}
+
+
+# ─── User favourite artists ───────────────────────────────────────────────────
+
+mutation FollowArtist(
+  $userId: String!
+  $artistId: UUID!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteArtist_insert(data: {
+    userId: $userId
+    artist: { id: $artistId }
+  })
+}
+
+mutation UnfollowArtist(
+  $userId: String!
+  $artistId: UUID!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteArtist_deleteMany(where: {
+    userId: { eq: $userId }
+    artist: { id: { eq: $artistId } }
+  })
+}
+
+mutation ClearFavoriteArtists($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteArtist_deleteMany(where: { userId: { eq: $userId } })
+}
+
+
+# ─── User favourite genres ────────────────────────────────────────────────────
+
+mutation AddFavoriteGenre(
+  $userId: String!
+  $genreId: UUID!
+  $rank: Int!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteGenre_insert(data: {
+    userId: $userId
+    genre:  { id: $genreId }
+    rank:   $rank
+  })
+}
+
+mutation ClearFavoriteGenres($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteGenre_deleteMany(where: { userId: { eq: $userId } })
+}
+
+
+# ─── Liked songs ─────────────────────────────────────────────────────────────
+
+mutation LikeSong(
+  $userId: String!
+  $songId: UUID!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteSong_insert(data: {
+    userId: $userId
+    song:   { id: $songId }
+  })
+}
+
+mutation UnlikeSong(
+  $userId: String!
+  $songId: UUID!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  userFavoriteSong_deleteMany(where: {
+    userId: { eq: $userId }
+    song:   { id: { eq: $songId } }
+  })
+}
+
+
+# ─── Play history ─────────────────────────────────────────────────────────────
+
+mutation RecordPlay(
+  $userId: String!
+  $songId: UUID!
+  $completionPct: Int!
+  $listenedSeconds: Int!
+  $source: String
+  $device: String
+  $skipped: Boolean
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  playHistory_insert(data: {
+    userId:          $userId
+    song:            { id: $songId }
+    completionPct:   $completionPct
+    listenedSeconds: $listenedSeconds
+    source:          $source
+    device:          $device
+    skipped:         $skipped
+  })
+}
+
+
+# ─── Artist follows ────────────────────────────────────────────────────────────
+
+mutation FollowArtistFeed(
+  $userId: String!
+  $artistId: UUID!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  artistFollow_insert(data: {
+    userId: $userId
+    artist: { id: $artistId }
+  })
+}
+
+mutation UnfollowArtistFeed(
+  $userId: String!
+  $artistId: UUID!
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "userId is validated server-side before this mutation is called") {
+  artistFollow_deleteMany(where: {
+    userId: { eq: $userId }
+    artist: { id: { eq: $artistId } }
+  })
+}
+
+
+# ─── Recommendation cache ─────────────────────────────────────────────────────
+
+mutation UpsertRecommendationCache(
+  $userId: String!
+  $songId: UUID!
+  $score: Float!
+  $reasonArtist: Float
+  $reasonGenre: Float
+  $reasonLanguage: Float
+  $reasonHistory: Float
+  $reasonTrending: Float
+) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Called only by the FastAPI backend service account") {
+  recommendationCache_insert(data: {
+    userId:          $userId
+    song:            { id: $songId }
+    score:           $score
+    reasonArtist:    $reasonArtist
+    reasonGenre:     $reasonGenre
+    reasonLanguage:  $reasonLanguage
+    reasonHistory:   $reasonHistory
+    reasonTrending:  $reasonTrending
+  })
+}
+
+mutation ClearRecommendationCache($userId: String!) @auth(level: USER_EMAIL_VERIFIED, insecureReason: "Called only by the FastAPI backend service account") {
+  recommendationCache_deleteMany(where: { userId: { eq: $userId } })
+}

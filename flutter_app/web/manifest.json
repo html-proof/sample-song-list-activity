@@ -3,9 +3,9 @@
     "short_name": "Music Hub",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0F082E",
-    "theme_color": "#0F082E",
-    "description": "Your personal, cross-platform music companion.",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "A new Flutter project.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
