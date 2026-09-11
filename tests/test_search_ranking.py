@@ -6,7 +6,7 @@ import pytest
 from music_hub.config import Settings
 from music_hub.search import MatchTier, deduplicate, detect_intent, normalize, rank_songs
 from music_hub.search.intent import QueryIntent
-from music_hub.search.ranking import score_song, song_identity
+from music_hub.search.ranking import rank_albums, score_song, song_identity
 from music_hub.services.search import SearchService
 
 
@@ -173,6 +173,12 @@ def test_fuzzy_never_precedes_an_exact_match():
     assert titles(results) == ["Pattalam", "Pattalan"]
 
 
+def test_short_queries_never_use_fuzzy_matching():
+    # A short query must stay on the predictable prefix path rather than
+    # suggesting unrelated records from a permissive similarity ratio.
+    assert score_song(song("Banana"), "an")[0] is MatchTier.NONE
+
+
 # -- language queries --------------------------------------------------------
 
 
@@ -233,6 +239,22 @@ def test_distinct_songs_are_not_collapsed():
         song("Pattalam", artist="B", track_id="2"),
     ]
     assert len(deduplicate(covers)) == 2
+
+
+def test_versioned_tracks_are_not_collapsed_into_the_original():
+    original = song("Pattalam", artist="A", album="Pattalam", track_id="1")
+    remix = song("Pattalam Remix", artist="A", album="Pattalam", track_id="2")
+    assert len(deduplicate([original, remix])) == 2
+
+
+def test_albums_with_the_same_name_in_different_languages_are_not_merged():
+    albums = [
+        {"album_id": "ta", "title": "Ghilli", "artists": "Vidyasagar", "language": "Tamil"},
+        {"album_id": "hi", "title": "Ghilli", "artists": "Vidyasagar", "language": "Hindi"},
+    ]
+    assert len(deduplicate(albums, lambda value: (
+        normalize(value.get("title")), normalize(value.get("artists")), normalize(value.get("language")),
+    ))) == 2
 
 
 def test_the_same_id_from_different_providers_is_not_collapsed():

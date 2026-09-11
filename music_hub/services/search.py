@@ -88,9 +88,20 @@ class SearchService:
         return min(max(limit * _OVERFETCH_FACTOR, 30), _MAX_OVERFETCH)
 
     async def _fetch(self, method: str, query: str, limit: int) -> list[dict]:
+        async def fetch_from(provider: MusicProvider):
+            try:
+                return await asyncio.wait_for(
+                    getattr(provider, method)(query, limit),
+                    timeout=self.settings.search_provider_timeout_seconds,
+                )
+            except (asyncio.TimeoutError, Exception):
+                # A partial search is more useful than a global failure.  The
+                # exception stays local to this provider and other providers
+                # (or the cache) can still answer immediately.
+                return []
+
         responses = await asyncio.gather(
-            *[getattr(provider, method)(query, limit) for provider in self.providers],
-            return_exceptions=True,
+            *(fetch_from(provider) for provider in self.providers),
         )
         return self._merge(list(responses))
 
@@ -257,7 +268,17 @@ class SearchService:
 
 
 def _album_identity(album: dict) -> tuple[str, str, str]:
-    return (normalize(album.get("title")), normalize(album.get("artists")), "")
+    # Title is not sufficient for regional catalogues: a soundtrack may exist
+    # in more than one language or as a distinct remaster/deluxe release.
+    qualifier = ":".join(
+        value
+        for value in (
+            normalize(album.get("language")),
+            str(album.get("release_year") or album.get("year") or "").strip(),
+        )
+        if value
+    )
+    return (normalize(album.get("title")), normalize(album.get("artists")), qualifier)
 
 
 def _artist_identity(artist: dict) -> tuple[str, str, str]:

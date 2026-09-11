@@ -93,3 +93,21 @@ async def test_every_search_response_uses_a_short_cache_ttl():
     await service.search(uuid4(), "Sarkar", "albums", 10)
 
     assert 30 <= cache.set_json.await_args.args[2] <= 60
+
+
+@pytest.mark.asyncio
+async def test_a_timed_out_provider_does_not_block_a_fast_provider():
+    service, provider, _, _ = make_service()
+    slow = AsyncMock()
+
+    async def never_returns(*_):
+        await __import__("asyncio").sleep(10)
+
+    slow.search_songs.side_effect = never_returns
+    provider.search_songs.return_value = [{"track_id": "1", "title": "Pattalam"}]
+    service.providers = [provider, slow]
+    service.settings.search_provider_timeout_seconds = 0.01
+
+    result = await service.search(uuid4(), "Pattalam", "songs", 10)
+
+    assert [song["title"] for song in result["songs"]] == ["Pattalam"]

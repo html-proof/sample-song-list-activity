@@ -129,6 +129,11 @@ def _text_tier(query: str, text: str, *, exact: MatchTier, prefix: MatchTier,
         return exact
     if text.startswith(query):
         return prefix
+    # Very short input is a suggestion/prefix lookup.  Substring and token
+    # matching at this length turns a query such as "ar" into a catalogue-wide
+    # scan of incidental character pairs.
+    if len(query.replace(" ", "")) <= 2:
+        return MatchTier.NONE
     if query in text.split():
         return word
     if query in text:
@@ -137,12 +142,19 @@ def _text_tier(query: str, text: str, *, exact: MatchTier, prefix: MatchTier,
 
 
 def _fuzzy_tier(query: str, text: str) -> MatchTier:
+    # One- and two-character queries are inherently ambiguous ("ar" should
+    # not fuzzy-match every title with an "a").  Keep these on the fast exact
+    # and prefix path; tolerate progressively more uncertainty only once the
+    # user has supplied enough intent.
+    if len(query.replace(" ", "")) < 3:
+        return MatchTier.NONE
     ratio = best_similarity(query, text)
-    if ratio >= 0.90:
+    length = len(query.replace(" ", ""))
+    if ratio >= (0.92 if length <= 5 else 0.90):
         return MatchTier.FUZZY_STRONG
-    if ratio >= 0.80:
+    if ratio >= (0.86 if length <= 5 else 0.80):
         return MatchTier.FUZZY
-    if ratio >= 0.70:
+    if length > 5 and ratio >= 0.70:
         return MatchTier.FUZZY_WEAK
     return MatchTier.NONE
 
@@ -247,7 +259,14 @@ def score_song_for_language(song: dict, language: str) -> tuple[MatchTier, float
 
 
 def song_identity(song: dict) -> tuple[str, str, str]:
-    return (song_title(song), song_artist(song), song_album(song))
+    # Versions are separate recordings.  A title match alone must not erase a
+    # live, remix, instrumental, karaoke, acoustic or remastered track.
+    version = " ".join(
+        token
+        for token in ("live", "remix", "acoustic", "instrumental", "karaoke", "remaster")
+        if token in song_title(song) or token in song_album(song)
+    )
+    return (song_title(song), song_artist(song), f"{song_album(song)}:{version}")
 
 
 def _completeness(song: dict) -> int:

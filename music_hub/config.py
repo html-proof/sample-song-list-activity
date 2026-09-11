@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     # Search responses are cached only long enough to absorb keystrokes;
     # SearchService clamps this to 30-60 seconds.
     search_cache_ttl: int = 45
+    # A catalogue source is allowed to be slow, but it must never hold the
+    # whole search response hostage.  This is deliberately independent from
+    # the longer timeouts used by detail/playback requests.
+    search_provider_timeout_seconds: float = 2.5
     artist_cache_ttl: int = 1800
     album_cache_ttl: int = 1800
     trending_cache_ttl: int = 300
